@@ -1,0 +1,16 @@
+{
+  "name": "wealthwise",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "services/*"
+  ],
+  "scripts": {
+    "bootstrap": "yarn install",
+    "build": "yarn workspaces run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0"
+  }
+}
