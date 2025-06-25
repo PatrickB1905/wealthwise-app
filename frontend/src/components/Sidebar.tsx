@@ -16,10 +16,12 @@ import {
   Logout
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const { logout } = useAuth();
 
   const items = [
     { label: 'Portfolio', icon: <ShowChart />, path: '/app/positions' },
@@ -48,7 +50,7 @@ const Sidebar: React.FC = () => {
         <Box sx={{ flexGrow: 1 }} />
         <Divider />
         <List>
-          <ListItemButton onClick={() => {/* TODO: handle logout */}}>
+          <ListItemButton onClick={() => logout()}>
             <ListItemIcon><Logout /></ListItemIcon>
             <ListItemText primary="Logout" />
           </ListItemButton>
