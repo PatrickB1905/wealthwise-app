@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import authRoutes from './routes/auth';
+import positionsRoutes from './routes/positions';
+import { authenticate, authErrorHandler } from './middleware/auth';
 
 dotenv.config();
 const app = express();
@@ -22,6 +24,9 @@ app.get('/api/health', (_: Request, res: Response) =>
 
 // Auth routes
 app.use('/api/auth', authRoutes(prisma));
+
+// Protect positions endpoints
+app.use('/api/positions', authenticate, authErrorHandler, positionsRoutes(prisma));
 
 // Global error handler
 app.use((err: any, _: Request, res: Response, __: NextFunction) => {
