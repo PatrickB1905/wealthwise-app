@@ -20,6 +20,7 @@ import {
   ButtonGroup,
 } from '@mui/material';
 import API from '../api/axios';
+import MarketAPI from '../api/marketData';
 
 interface Position {
   id: number;
@@ -31,9 +32,16 @@ interface Position {
   sellDate?: string;
 }
 
+interface Quote {
+  symbol: string;
+  currentPrice: number;
+  dailyChangePercent: number;
+}
+
 const PositionsPage: React.FC = () => {
   const [tab, setTab] = useState<'open' | 'closed'>('open');
   const [positions, setPositions] = useState<Position[]>([]);
+  const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [addOpen, setAddOpen] = useState(false);
@@ -50,8 +58,21 @@ const PositionsPage: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await API.get(`/positions?status=${tab}`);
-      setPositions(res.data);
+      const res = await API.get<Position[]>(`/positions?status=${tab}`);
+      const pos = res.data;
+      setPositions(pos);
+
+      if (tab === 'open' && pos.length > 0) {
+        const symbols = pos.map((p) => p.ticker).join(',');
+        const qr = await MarketAPI.get<Quote[]>(`/quotes`, { params: { symbols } });
+        const qmap: Record<string, Quote> = {};
+        qr.data.forEach((q) => {
+          qmap[q.symbol] = q;
+        });
+        setQuotes(qmap);
+      } else {
+        setQuotes({});
+      }
     } catch {
       setError('Failed to load positions');
     } finally {
@@ -145,11 +166,11 @@ const PositionsPage: React.FC = () => {
               {positions.map((pos) => {
                 const cost = pos.quantity * pos.buyPrice;
                 if (tab === 'open') {
-                  // Placeholder values until market-data is wired up
-                  const currentPrice = 0;
+                  const quote = quotes[pos.ticker];
+                  const currentPrice = quote?.currentPrice ?? 0;
                   const totalPL = currentPrice * pos.quantity - cost;
                   const totalPLPercent = cost ? (totalPL / cost) * 100 : 0;
-                  const dailyChange = 0;
+                  const dailyChange = quote?.dailyChangePercent ?? 0;
                   return (
                     <TableRow key={pos.id}>
                       <TableCell>{pos.ticker}</TableCell>
