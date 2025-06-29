@@ -6,6 +6,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import PositionsPage from './PositionsPage';
 import AnalyticsPage from './AnalyticsPage';
 import NewsPage from './NewsPage';
+import ProfilePage from './ProfilePage';
 
 const DashboardLayout: React.FC = () => (
   <Box sx={{ display: 'flex', minHeight: '100vh' }}>
@@ -17,6 +18,7 @@ const DashboardLayout: React.FC = () => (
         <Route path="positions" element={<PositionsPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="news" element={<NewsPage />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Routes>
     </Box>
   </Box>
