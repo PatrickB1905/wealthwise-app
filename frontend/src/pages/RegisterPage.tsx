@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext';
 const RegisterPage: React.FC = () => {
   const { register } = useAuth();
   const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -13,7 +15,7 @@ const RegisterPage: React.FC = () => {
     e.preventDefault();
     setError(null);
     try {
-      await register(email, password);
+      await register(firstName, lastName, email, password);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Registration failed');
     }
@@ -27,6 +29,22 @@ const RegisterPage: React.FC = () => {
         </Typography>
         {error && <Alert severity="error">{error}</Alert>}
         <Box component="form" noValidate autoComplete="off" onSubmit={handleSubmit}>
+          <TextField
+            fullWidth
+            margin="normal"
+            label="First Name"
+            required
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+          />
+          <TextField
+            fullWidth
+            margin="normal"
+            label="Last Name"
+            required
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+          />
           <TextField
             fullWidth
             margin="normal"

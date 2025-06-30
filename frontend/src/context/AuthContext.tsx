@@ -11,7 +11,7 @@ interface User {
 interface AuthContextValue {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (firstName: string, lastName: string, email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -38,8 +38,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     navigate('/app/positions', { replace: true });
   };
 
-  const register = async (email: string, password: string) => {
-    const res = await API.post('/auth/register', { email, password });
+  const register = async (firstName: string, lastName: string, email: string, password: string) => {
+    const res = await API.post('/auth/register', { firstName, lastName, email, password });
     const { token, user } = res.data;
     localStorage.setItem('ww_token', token);
     localStorage.setItem('ww_user', JSON.stringify(user));

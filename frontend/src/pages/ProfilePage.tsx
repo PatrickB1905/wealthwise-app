@@ -17,6 +17,8 @@ import { useAuth } from '../context/AuthContext';
 
 interface Profile {
   id: number;
+  firstName: string;
+  lastName: string;
   email: string;
   createdAt: string;
 }
@@ -103,6 +105,9 @@ const ProfilePage: React.FC = () => {
       <Typography variant="h5" gutterBottom>
         My Profile
       </Typography>
+      <Typography variant="body1" gutterBottom>
+        Name: {profile.firstName} {profile.lastName}
+      </Typography>
       <Typography variant="body2" gutterBottom>
         Member since: {new Date(profile.createdAt).toLocaleString()}
       </Typography>
@@ -118,7 +123,7 @@ const ProfilePage: React.FC = () => {
           margin="normal"
         />
         <Button variant="contained" onClick={handleEmailUpdate}>
-          Save Email
+          Update Email
         </Button>
       </Box>
 
@@ -146,7 +151,6 @@ const ProfilePage: React.FC = () => {
         </Button>
       </Box>
 
-      {/* Delete Account */}
       <Box sx={{ mt: 3 }}>
         <Button variant="outlined" color="error" onClick={() => setDeleteOpen(true)}>
           Delete Account
