@@ -1,62 +1,82 @@
 import React from 'react';
-import {
-  Drawer,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Box,
-  Divider
-} from '@mui/material';
+import { List, ListItemButton, ListItemText, Divider } from '@mui/material';
+import { styled, useTheme } from '@mui/material/styles';
 import {
   ShowChart,
   Assessment,
   Feed,
   AccountCircle,
-  Logout
+  Logout,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import {
+  SidebarContainer,
+  SidebarBrand,
+  SidebarPush,
+  SidebarIcon,
+} from './layout/Styled';
+
+const StyledListItem = styled(ListItemButton, {
+  shouldForwardProp: (prop) => prop !== 'selected',
+})<{ selected?: boolean }>(({ theme, selected }) => ({
+  margin: theme.spacing(0, 2),
+  borderRadius: theme.shape.borderRadius,
+  ...(selected && {
+    backgroundColor: theme.palette.action.selected,
+    '& .MuiListItemIcon-root, & .MuiListItemText-primary': {
+      color: theme.palette.primary.main,
+    },
+  }),
+  '&:hover': {
+    backgroundColor: theme.palette.action.hover,
+  },
+}));
 
 const Sidebar: React.FC = () => {
+  const theme = useTheme();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { logout } = useAuth();
 
   const items = [
-    { label: 'Portfolio', icon: <ShowChart />, path: '/app/positions' },
-    { label: 'Analytics & Data', icon: <Assessment />, path: '/app/analytics' },
-    { label: 'News', icon: <Feed />, path: '/app/news' },
-    { label: 'My Profile', icon: <AccountCircle />, path: '/app/profile' }
+    { label: 'Portfolio',       icon: <ShowChart />,     path: '/app/positions' },
+    { label: 'Analytics & Data',icon: <Assessment />,    path: '/app/analytics' },
+    { label: 'News',            icon: <Feed />,          path: '/app/news' },
+    { label: 'My Profile',      icon: <AccountCircle />, path: '/app/profile' },
   ];
 
   return (
-    <Drawer variant="permanent">
-      <Box sx={{ width: 240, display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <Box sx={{ p: 2, fontWeight: 'bold', fontSize: '1.25rem' }}>WealthWise</Box>
-        <Divider />
-        <List>
-          {items.map((item) => (
-            <ListItemButton
-              key={item.label}
-              selected={pathname.startsWith(item.path)}
-              onClick={() => navigate(item.path)}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.label} />
-            </ListItemButton>
-          ))}
-        </List>
-        <Box sx={{ flexGrow: 1 }} />
-        <Divider />
-        <List>
-          <ListItemButton onClick={() => logout()}>
-            <ListItemIcon><Logout /></ListItemIcon>
-            <ListItemText primary="Logout" />
-          </ListItemButton>
-        </List>
-      </Box>
-    </Drawer>
+    <SidebarContainer variant="permanent">
+      <SidebarBrand>WealthWise</SidebarBrand>
+      <Divider />
+
+      <List>
+        {items.map(item => (
+          <StyledListItem
+            key={item.label}
+            selected={pathname.startsWith(item.path)}
+            onClick={() => navigate(item.path)}
+          >
+            <SidebarIcon>{item.icon}</SidebarIcon>
+            <ListItemText primary={item.label} />
+          </StyledListItem>
+        ))}
+      </List>
+
+      <SidebarPush />
+
+      <Divider />
+
+      <List>
+        <StyledListItem onClick={logout}>
+          <SidebarIcon>
+            <Logout />
+          </SidebarIcon>
+          <ListItemText primary="Logout" />
+        </StyledListItem>
+      </List>
+    </SidebarContainer>
   );
 };
 

@@ -1,272 +1,518 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
-  Box,
+  Avatar,
   Button,
-  Container,
-  Typography,
-  TableContainer,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  Paper,
-  CircularProgress,
   Dialog,
-  DialogTitle,
-  DialogContent,
   DialogActions,
+  DialogContent,
+  DialogTitle,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableFooter,
+  TableRow,
   TextField,
+  Typography,
+  Box,
+  CircularProgress,
   ButtonGroup,
 } from '@mui/material';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import API from '../api/axios';
-import MarketAPI from '../api/marketData';
+import { usePositionWS } from '../hooks/usePositionWS';
+import { useQuotes } from '../hooks/useQuotes';
+import {
+  PageContainer,
+  StyledContainer,
+  PageCard,
+  SectionHeader,
+  SectionContent,
+  CenteredBox,
+} from '../components/layout/Styled';
 
 interface Position {
   id: number;
   ticker: string;
   quantity: number;
   buyPrice: number;
-  buyDate: string;
   sellPrice?: number;
-  sellDate?: string;
 }
 
 interface Quote {
   symbol: string;
   currentPrice: number;
-  dailyChangePercent: number;
+  logoUrl: string;
 }
 
+const POSITIVE_COLOR = '#10b42c';
+const NEGATIVE_COLOR = '#f83c44';
+const ZERO_COLOR     = '#000000';
+
 const PositionsPage: React.FC = () => {
+  usePositionWS();
+
+  const qc = useQueryClient();
   const [tab, setTab] = useState<'open' | 'closed'>('open');
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [quotes, setQuotes] = useState<Record<string, Quote>>({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [addOpen, setAddOpen] = useState(false);
-  const [closeOpen, setCloseOpen] = useState(false);
-  const [selectedPos, setSelectedPos] = useState<Position | null>(null);
 
-  const [newTicker, setNewTicker] = useState('');
-  const [newQuantity, setNewQuantity] = useState('');
-  const [newBuyPrice, setNewBuyPrice] = useState('');
+  const [addOpen,    setAddOpen]    = useState(false);
+  const [closeOpen,  setCloseOpen]  = useState(false);
+  const [editOpen,   setEditOpen]   = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [selected,   setSelected]   = useState<Position | null>(null);
 
-  const [closeSellPrice, setCloseSellPrice] = useState('');
+  const [newTicker,    setNewTicker]    = useState('');
+  const [newQuantity,  setNewQuantity]  = useState('');
+  const [newBuyPrice,  setNewBuyPrice]  = useState('');
+  const [newSellPrice, setNewSellPrice] = useState('');
+  const [tickerError,  setTickerError]  = useState('');
 
-  const fetchPositions = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await API.get<Position[]>(`/positions?status=${tab}`);
-      const pos = res.data;
-      setPositions(pos);
+  const {
+    data: positions = [],
+    isLoading: posLoading,
+    error: posError,
+  } = useQuery<Position[], Error>({
+    queryKey: ['positions', tab],
+    queryFn: () =>
+      API.get<Position[]>(`/positions?status=${tab}`).then(r => r.data),
+    keepPreviousData: true,
+    refetchOnWindowFocus: false,
+  });
 
-      if (tab === 'open' && pos.length > 0) {
-        const symbols = pos.map((p) => p.ticker).join(',');
-        const qr = await MarketAPI.get<Quote[]>(`/quotes`, { params: { symbols } });
-        const qmap: Record<string, Quote> = {};
-        qr.data.forEach((q) => {
-          qmap[q.symbol] = q;
-        });
-        setQuotes(qmap);
-      } else {
-        setQuotes({});
-      }
-    } catch {
-      setError('Failed to load positions');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const tickers = positions.map(p => p.ticker);
+  const {
+    data: quotesArray = [],
+    isLoading: quotesLoading,
+  } = useQuotes(tickers);
 
-  useEffect(() => {
-    fetchPositions();
-  }, [tab]);
+  const quotesMap = useMemo<Record<string, Quote>>(() => {
+    const m: Record<string, Quote> = {};
+    quotesArray.forEach(q => { m[q.symbol] = q; });
+    return m;
+  }, [quotesArray]);
 
-  const handleAddSubmit = async () => {
-    try {
-      await API.post('/positions', {
-        ticker: newTicker.toUpperCase(),
-        quantity: parseFloat(newQuantity),
-        buyPrice: parseFloat(newBuyPrice),
-      });
+  const addPosition = useMutation({
+    mutationFn: (newPos: { ticker: string; quantity: number; buyPrice: number }) =>
+      API.post('/positions', newPos).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries(['positions', 'open']);
       setAddOpen(false);
-      setNewTicker('');
-      setNewQuantity('');
-      setNewBuyPrice('');
-      fetchPositions();
-    } catch {
-      setError('Failed to add position');
+    },
+  });
+
+  const closePosition = useMutation({
+    mutationFn: (vars: { id: number; sellPrice: number }) =>
+      API.put(`/positions/${vars.id}/close`, { sellPrice: vars.sellPrice }).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries(['positions', 'open']);
+      qc.invalidateQueries(['positions', 'closed']);
+      setCloseOpen(false);
+      setSelected(null);
+    },
+  });
+
+  const editPosition = useMutation({
+    mutationFn: (vars: {
+      id: number;
+      quantity: number;
+      buyPrice: number;
+      sellPrice?: number;
+    }) =>
+      API.put(`/positions/${vars.id}`, {
+        quantity: vars.quantity,
+        buyPrice: vars.buyPrice,
+        ...(tab === 'closed' && vars.sellPrice !== undefined
+          ? { sellPrice: vars.sellPrice }
+          : {}),
+      }).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries(['positions', tab]);
+      setEditOpen(false);
+      setSelected(null);
+    },
+  });
+
+  const deletePosition = useMutation({
+    mutationFn: (id: number) => API.delete(`/positions/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries(['positions', tab]);
+      setDeleteOpen(false);
+      setSelected(null);
+    },
+  });
+
+  const onAddSubmit = () => {
+    setTickerError('');
+    const sym = newTicker.trim().toUpperCase();
+    if (!sym) {
+      setTickerError('Ticker is required');
+      return;
     }
+    addPosition.mutate({
+      ticker: sym,
+      quantity: Number(newQuantity),
+      buyPrice: Number(newBuyPrice),
+    });
   };
 
-  const handleCloseSubmit = async () => {
-    if (!selectedPos) return;
-    try {
-      await API.put(`/positions/${selectedPos.id}/close`, {
-        sellPrice: parseFloat(closeSellPrice),
-      });
-      setCloseOpen(false);
-      setCloseSellPrice('');
-      fetchPositions();
-    } catch {
-      setError('Failed to close position');
-    }
+  const onCloseSubmit = () => {
+    if (!selected) return;
+    closePosition.mutate({ id: selected.id, sellPrice: Number(newSellPrice) });
   };
+
+  const onEditSubmit = () => {
+    if (!selected) return;
+    editPosition.mutate({
+      id: selected.id,
+      quantity: Number(newQuantity),
+      buyPrice: Number(newBuyPrice),
+      sellPrice: tab === 'closed' ? Number(newSellPrice) : undefined,
+    });
+  };
+
+  const onDeleteConfirm = () => {
+    if (!selected) return;
+    deletePosition.mutate(selected.id);
+  };
+
+  const { totalInvested, totalProfit, totalProfitPct } = useMemo(() => {
+    let invested = 0, profit = 0;
+    positions.forEach(p => {
+      const cost = p.buyPrice * p.quantity;
+      const price = tab === 'open'
+        ? quotesMap[p.ticker]?.currentPrice ?? (cost / p.quantity)
+        : (p.sellPrice ?? p.buyPrice);
+      invested += cost;
+      profit += price * p.quantity - cost;
+    });
+    return {
+      totalInvested: invested,
+      totalProfit: profit,
+      totalProfitPct: invested ? (profit / invested) * 100 : 0,
+    };
+  }, [positions, quotesMap, tab]);
 
   return (
-    <Container sx={{ mt: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-        <ButtonGroup variant="contained">
-          <Button onClick={() => setTab('open')} disabled={tab === 'open'}>
-            Open Positions
-          </Button>
-          <Button onClick={() => setTab('closed')} disabled={tab === 'closed'}>
-            Closed Positions
-          </Button>
-        </ButtonGroup>
-        {tab === 'open' && (
-          <Button variant="outlined" onClick={() => setAddOpen(true)}>
-            Add Position
-          </Button>
-        )}
-      </Box>
+    <PageContainer>
+      <StyledContainer>
+        <PageCard>
+          <SectionHeader
+            title={tab === 'open' ? 'Open Positions' : 'Closed Positions'}
+            action={
+              tab === 'open' && (
+                <Button onClick={() => setAddOpen(true)} variant="contained">
+                  Add Position
+                </Button>
+              )
+            }
+          />
+          <SectionContent>
+            <ButtonGroup sx={{ mb: { xs: 1, sm: 2 } }}>
+              <Button
+                variant={tab === 'open' ? 'contained' : 'outlined'}
+                onClick={() => setTab('open')}
+              >
+                Open
+              </Button>
+              <Button
+                variant={tab === 'closed' ? 'contained' : 'outlined'}
+                onClick={() => setTab('closed')}
+              >
+                Closed
+              </Button>
+            </ButtonGroup>
 
-      {loading ? (
-        <CircularProgress />
-      ) : error ? (
-        <Typography color="error">{error}</Typography>
-      ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Ticker</TableCell>
-                <TableCell align="right">Quantity</TableCell>
-                <TableCell align="right">Buy Price</TableCell>
-                {tab === 'open' ? (
-                  <>
-                    <TableCell align="right">Current Price</TableCell>
-                    <TableCell align="right">Total P/L ($)</TableCell>
-                    <TableCell align="right">Total P/L (%)</TableCell>
-                    <TableCell align="right">Daily Change (%)</TableCell>
-                    <TableCell align="center">Actions</TableCell>
-                  </>
-                ) : (
-                  <>
-                    <TableCell align="right">Sell Price</TableCell>
-                    <TableCell align="right">Total P/L ($)</TableCell>
-                    <TableCell align="right">Total P/L (%)</TableCell>
-                  </>
-                )}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {positions.map((pos) => {
-                const cost = pos.quantity * pos.buyPrice;
-                if (tab === 'open') {
-                  const quote = quotes[pos.ticker];
-                  const currentPrice = quote?.currentPrice ?? 0;
-                  const totalPL = currentPrice * pos.quantity - cost;
-                  const totalPLPercent = cost ? (totalPL / cost) * 100 : 0;
-                  const dailyChange = quote?.dailyChangePercent ?? 0;
-                  return (
-                    <TableRow key={pos.id}>
-                      <TableCell>{pos.ticker}</TableCell>
-                      <TableCell align="right">{pos.quantity}</TableCell>
-                      <TableCell align="right">${pos.buyPrice.toFixed(2)}</TableCell>
-                      <TableCell align="right">${currentPrice.toFixed(2)}</TableCell>
-                      <TableCell align="right">${totalPL.toFixed(2)}</TableCell>
-                      <TableCell align="right">{totalPLPercent.toFixed(2)}%</TableCell>
-                      <TableCell align="right">{dailyChange.toFixed(2)}%</TableCell>
-                      <TableCell align="center">
-                        <Button
-                          size="small"
-                          onClick={() => {
-                            setSelectedPos(pos);
-                            setCloseOpen(true);
-                          }}
-                        >
-                          Close
-                        </Button>
+            {(posLoading || quotesLoading) ? (
+              <CenteredBox>
+                <CircularProgress />
+              </CenteredBox>
+            ) : posError ? (
+              <Typography color="error">{posError.message}</Typography>
+            ) : positions.length === 0 ? (
+              <CenteredBox>
+                <Typography color="textSecondary">
+                  You currently have no {tab} positions.
+                </Typography>
+              </CenteredBox>
+            ) : (
+              <TableContainer component={Paper}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Ticker</TableCell>
+                      <TableCell align="right">Buy Price</TableCell>
+                      <TableCell align="right">Quantity</TableCell>
+                      <TableCell align="right">
+                        {tab === 'open' ? 'Current Price' : 'Sell Price'}
                       </TableCell>
+                      <TableCell align="right">Amount Invested ($)</TableCell>
+                      <TableCell align="right">Total P/L (%)</TableCell>
+                      <TableCell align="right">Total P/L ($)</TableCell>
+                      <TableCell align="center">Actions</TableCell>
                     </TableRow>
-                  );
-                } else {
-                  const sellPrice = pos.sellPrice ?? 0;
-                  const proceeds = sellPrice * pos.quantity;
-                  const totalPL = proceeds - cost;
-                  const totalPLPercent = cost ? (totalPL / cost) * 100 : 0;
-                  return (
-                    <TableRow key={pos.id}>
-                      <TableCell>{pos.ticker}</TableCell>
-                      <TableCell align="right">{pos.quantity}</TableCell>
-                      <TableCell align="right">${pos.buyPrice.toFixed(2)}</TableCell>
-                      <TableCell align="right">${sellPrice.toFixed(2)}</TableCell>
-                      <TableCell align="right">${totalPL.toFixed(2)}</TableCell>
-                      <TableCell align="right">{totalPLPercent.toFixed(2)}%</TableCell>
+                  </TableHead>
+                  <TableBody>
+                    {positions.map(pos => {
+                      const cost = pos.buyPrice * pos.quantity;
+                      const price = tab === 'open'
+                        ? quotesMap[pos.ticker]?.currentPrice ?? (cost / pos.quantity)
+                        : (pos.sellPrice ?? pos.buyPrice);
+                      const profit = price * pos.quantity - cost;
+                      const pct = cost ? (profit / cost) * 100 : 0;
+                      const colorPct = pct > 0
+                        ? POSITIVE_COLOR
+                        : pct < 0
+                        ? NEGATIVE_COLOR
+                        : ZERO_COLOR;
+                      const colorPl = profit > 0
+                        ? POSITIVE_COLOR
+                        : profit < 0
+                        ? NEGATIVE_COLOR
+                        : ZERO_COLOR;
+
+                      return (
+                        <TableRow key={pos.id}>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <Avatar
+                                src={quotesMap[pos.ticker]?.logoUrl}
+                                alt={pos.ticker}
+                                sx={{ width: 24, height: 24, mr: 1 }}
+                              />
+                              {pos.ticker}
+                            </Box>
+                          </TableCell>
+                          <TableCell align="right">${pos.buyPrice.toFixed(2)}</TableCell>
+                          <TableCell align="right">{pos.quantity}</TableCell>
+                          <TableCell align="right">${price.toFixed(2)}</TableCell>
+                          <TableCell align="right">${cost.toFixed(2)}</TableCell>
+                          <TableCell align="right" sx={{ color: colorPct }}>
+                            {pct.toFixed(2)}%
+                          </TableCell>
+                          <TableCell align="right" sx={{ color: colorPl }}>
+                            ${profit.toFixed(2)}
+                          </TableCell>
+                          <TableCell align="center">
+                            {tab === 'open' && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                sx={{ borderRadius: 2, px: 1.5 }}
+                                onClick={() => {
+                                  setSelected(pos);
+                                  setNewSellPrice('');
+                                  setCloseOpen(true);
+                                }}
+                              >
+                                Close
+                              </Button>
+                            )}
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              sx={{ mx:1, borderRadius:2, px:1.5 }}
+                              onClick={() => {
+                                setSelected(pos);
+                                setNewQuantity(String(pos.quantity));
+                                setNewBuyPrice(String(pos.buyPrice));
+                                setNewSellPrice(pos.sellPrice?.toString() ?? '');
+                                setEditOpen(true);
+                              }}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
+                              sx={{ borderRadius:2, px:1.5 }}
+                              onClick={() => {
+                                setSelected(pos);
+                                setDeleteOpen(true);
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+
+                  <TableFooter>
+                    <TableRow sx={{ borderTop: t => `2px solid ${t.palette.divider}` }}>
+                      <TableCell><strong>Totals</strong></TableCell>
+                      <TableCell />
+                      <TableCell />
+                      <TableCell />
+                      <TableCell align="right">
+                        <strong>${totalInvested.toFixed(2)}</strong>
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{
+                          color:
+                            totalProfitPct > 0 ? POSITIVE_COLOR :
+                            totalProfitPct < 0 ? NEGATIVE_COLOR :
+                            ZERO_COLOR
+                        }}
+                      >
+                        <strong>{totalProfitPct.toFixed(2)}%</strong>
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{
+                          color:
+                            totalProfit > 0 ? POSITIVE_COLOR :
+                            totalProfit < 0 ? NEGATIVE_COLOR :
+                            ZERO_COLOR
+                        }}
+                      >
+                        <strong>${totalProfit.toFixed(2)}</strong>
+                      </TableCell>
+                      <TableCell />
                     </TableRow>
-                  );
-                }
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+                  </TableFooter>
+                </Table>
+              </TableContainer>
+            )}
+          </SectionContent>
+        </PageCard>
+      </StyledContainer>
 
       <Dialog open={addOpen} onClose={() => setAddOpen(false)}>
         <DialogTitle>Add New Position</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
+            margin="dense"
             label="Ticker"
             value={newTicker}
-            onChange={(e) => setNewTicker(e.target.value)}
-            margin="dense"
+            error={!!tickerError}
+            helperText={tickerError}
+            onChange={e => setNewTicker(e.target.value)}
           />
           <TextField
             fullWidth
+            margin="dense"
             label="Quantity"
+            type="number"
             value={newQuantity}
-            onChange={(e) => setNewQuantity(e.target.value)}
-            margin="dense"
+            onChange={e => setNewQuantity(e.target.value)}
           />
           <TextField
             fullWidth
-            label="Buy Price"
-            value={newBuyPrice}
-            onChange={(e) => setNewBuyPrice(e.target.value)}
             margin="dense"
+            label="Buy Price"
+            type="number"
+            value={newBuyPrice}
+            onChange={e => setNewBuyPrice(e.target.value)}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleAddSubmit}>
-            Save
+          <Button
+            onClick={onAddSubmit}
+            disabled={addPosition.isLoading}
+            variant="contained"
+          >
+            {addPosition.isLoading ? 'Saving…' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={closeOpen} onClose={() => setCloseOpen(false)}>
-        <DialogTitle>Close Position {selectedPos?.ticker}</DialogTitle>
+        <DialogTitle>Close Position {selected?.ticker}</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
-            label="Sell Price"
-            value={closeSellPrice}
-            onChange={(e) => setCloseSellPrice(e.target.value)}
             margin="dense"
+            label="Sell Price"
+            type="number"
+            value={newSellPrice}
+            onChange={e => setNewSellPrice(e.target.value)}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCloseOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCloseSubmit}>
-            Close
+          <Button
+            onClick={onCloseSubmit}
+            disabled={closePosition.isLoading}
+            variant="contained"
+          >
+            {closePosition.isLoading ? 'Closing…' : 'Close'}
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
+        <DialogTitle>Edit Position {selected?.ticker}</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            margin="dense"
+            label="Quantity"
+            type="number"
+            value={newQuantity}
+            onChange={e => setNewQuantity(e.target.value)}
+          />
+          <TextField
+            fullWidth
+            margin="dense"
+            label="Buy Price"
+            type="number"
+            value={newBuyPrice}
+            onChange={e => setNewBuyPrice(e.target.value)}
+          />
+          {tab === 'closed' && (
+            <TextField
+              fullWidth
+              margin="dense"
+              label="Sell Price"
+              type="number"
+              value={newSellPrice}
+              onChange={e => setNewSellPrice(e.target.value)}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditOpen(false)}>Cancel</Button>
+          <Button
+            onClick={onEditSubmit}
+            disabled={editPosition.isLoading}
+            variant="contained"
+          >
+            {editPosition.isLoading ? 'Saving…' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)}>
+        <DialogTitle>Delete Position {selected?.ticker}?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            This will permanently remove the position. Are you sure?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteOpen(false)}>Cancel</Button>
+          <Button
+            color="error"
+            onClick={onDeleteConfirm}
+            disabled={deletePosition.isLoading}
+            variant="contained"
+          >
+            {deletePosition.isLoading ? 'Deleting…' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </PageContainer>
   );
 };
 

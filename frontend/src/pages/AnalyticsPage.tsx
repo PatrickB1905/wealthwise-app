@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Container,
-  Grid,
-  Card,
-  CardContent,
+  Box,
   Typography,
   CircularProgress,
-  Box,
-  Alert
+  Alert,
+  useTheme,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import {
   LineChart,
@@ -16,10 +15,20 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  ResponsiveContainer
+  ResponsiveContainer,
 } from 'recharts';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AnalyticsAPI from '../api/analyticsClient';
 import { useAuth } from '../context/AuthContext';
+import { usePositionWS } from '../hooks/usePositionWS';
+import {
+  PageContainer,
+  StyledContainer,
+  PageCard,
+  SectionHeader,
+  SectionContent,
+  CenteredBox,
+} from '../components/layout/Styled';
 
 interface Summary {
   invested: number;
@@ -34,112 +43,206 @@ interface HistoryItem {
   value: number;
 }
 
+const POS_COLOR = '#10b42c';
+const NEG_COLOR = '#f83c44';
+const ZERO_COLOR = '#000000';
+
+const RANGE_OPTIONS = [
+  { label: '12 M', months: 12 },
+  { label: '6 M',  months: 6 },
+  { label: '3 M',  months: 3 },
+  { label: '1 M',  months: 1 },
+];
+
 const AnalyticsPage: React.FC = () => {
+  const theme = useTheme();
+  const qc = useQueryClient();
   const { user } = useAuth();
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+
+  usePositionWS();
+
+  const [range, setRange] = useState(12);
+
+  const summaryQuery = useQuery<Summary, Error>({
+    queryKey: ['analytics', 'summary'],
+    queryFn: () =>
+      AnalyticsAPI.get<Summary>('/analytics/summary', {
+        params: { userId: user!.id },
+      }).then(r => r.data),
+    enabled: Boolean(user),
+    refetchOnWindowFocus: false,
+  });
+
+  const historyQuery = useQuery<HistoryItem[], Error>({
+    queryKey: ['analytics', 'history', range],
+    queryFn: () =>
+      AnalyticsAPI.get<HistoryItem[]>('/analytics/history', {
+        params: { userId: user!.id, months: range },
+      }).then(r => r.data),
+    enabled: Boolean(user),
+    keepPreviousData: true,
+    refetchOnWindowFocus: false,
+  });
 
   useEffect(() => {
-    if (!user) return;
-    const fetchAnalytics = async () => {
-      try {
-        const sumRes = await AnalyticsAPI.get<Summary>('/analytics/summary', {
-          params: { userId: user.id }
-        });
-        setSummary(sumRes.data);
+    qc.invalidateQueries(['analytics', 'summary']);
+    qc.invalidateQueries(['analytics', 'history', range]);
+  }, [qc, range]);
 
-        const histRes = await AnalyticsAPI.get<HistoryItem[]>('/analytics/history', {
-          params: { userId: user.id, months: 12 }
-        });
-        setHistory(histRes.data);
-      } catch (e: any) {
-        setError('Failed to load analytics data');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAnalytics();
-  }, [user]);
+  const summary = summaryQuery.data;
+  const history = historyQuery.data || [];
+  const loading = summaryQuery.isLoading || historyQuery.isLoading;
+  const errorMsg = summaryQuery.error?.message || historyQuery.error?.message;
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const plColor = useMemo(() => {
+    if (!summary) return ZERO_COLOR;
+    return summary.totalPL > 0
+      ? POS_COLOR
+      : summary.totalPL < 0
+      ? NEG_COLOR
+      : ZERO_COLOR;
+  }, [summary]);
 
-  if (error || !summary) {
-    return <Alert severity="error">{error || 'No data available'}</Alert>;
-  }
+  const pctColor = useMemo(() => {
+    if (!summary) return ZERO_COLOR;
+    return summary.totalPLPercent > 0
+      ? POS_COLOR
+      : summary.totalPLPercent < 0
+      ? NEG_COLOR
+      : ZERO_COLOR;
+  }, [summary]);
+
+  const handleRange = (_: React.MouseEvent<HTMLElement>, val: number) => {
+    if (val) setRange(val);
+  };
 
   return (
-    <Container sx={{ mt: 4, mb: 4 }}>
-      <Grid container spacing={2} mb={4}>
-        <Grid item xs={12} sm={6} md={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle2">Money Invested</Typography>
-              <Typography variant="h5">${summary.invested.toFixed(2)}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle2">Total P/L ($)</Typography>
-              <Typography variant="h5">${summary.totalPL.toFixed(2)}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle2">Total P/L (%)</Typography>
-              <Typography variant="h5">{summary.totalPLPercent.toFixed(2)}%</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle2">Open Positions</Typography>
-              <Typography variant="h5">{summary.openCount}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle2">Closed Positions</Typography>
-              <Typography variant="h5">{summary.closedCount}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+    <PageContainer>
+      <StyledContainer>
+        {loading ? (
+          <CenteredBox>
+            <CircularProgress />
+          </CenteredBox>
+        ) : errorMsg ? (
+          <Alert severity="error">{errorMsg}</Alert>
+        ) : summary ? (
+          <>
+            <Box
+              display="flex"
+              flexWrap="wrap"
+              gap={2}
+              mb={3}
+            >
+              {[
+                {
+                  title: 'Money Invested',
+                  value: `$${summary.invested.toFixed(2)}`,
+                  color: theme.palette.text.primary,
+                },
+                {
+                  title: 'Total P/L ($)',
+                  value: `$${summary.totalPL.toFixed(2)}`,
+                  color: plColor,
+                },
+                {
+                  title: 'Total P/L (%)',
+                  value: `${summary.totalPLPercent.toFixed(2)}%`,
+                  color: pctColor,
+                },
+              ].map(item => (
+                <Box
+                  key={item.title}
+                  flex="1 1 calc(33.333% - 16px)"
+                  minWidth="200px"
+                >
+                  <PageCard>
+                    <SectionHeader
+                      title={item.title}
+                      titleTypographyProps={{
+                        variant: 'subtitle2',
+                        color: 'textSecondary',
+                      }}
+                    />
+                    <SectionContent>
+                      <Typography
+                        variant="h5"
+                        fontWeight="bold"
+                        sx={{ color: item.color }}
+                      >
+                        {item.value}
+                      </Typography>
+                    </SectionContent>
+                  </PageCard>
+                </Box>
+              ))}
+            </Box>
 
-      <Typography variant="h6" gutterBottom>
-        Portfolio Value Over Last 12 Months
-      </Typography>
-      <Box sx={{ width: '100%', height: 300 }}>
-        <ResponsiveContainer>
-          <LineChart data={history}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip />
-            <Line
-              type="monotone"
-              dataKey="value"
-              stroke="#1976d2"
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </Box>
-    </Container>
+            <Box textAlign="center" mb={2}>
+              <ToggleButtonGroup
+                value={range}
+                exclusive
+                onChange={handleRange}
+                aria-label="time range"
+                sx={{
+                  '& .MuiToggleButton-root': {
+                    textTransform: 'none',
+                    fontWeight: theme.typography.fontWeightMedium,
+                  },
+                }}
+              >
+                {RANGE_OPTIONS.map(opt => (
+                  <ToggleButton key={opt.months} value={opt.months}>
+                    {opt.label}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </Box>
+
+            <PageCard>
+              <SectionHeader
+                title={`Profit Over Last ${range} Month${range > 1 ? 's' : ''}`}
+                titleTypographyProps={{ variant: 'h6' }}
+              />
+              <SectionContent>
+                <Box sx={{ width: '100%', height: 350 }}>
+                  <ResponsiveContainer>
+                    <LineChart data={history}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke={theme.palette.divider}
+                      />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
+                      />
+                      <YAxis
+                        tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: 8,
+                          boxShadow: theme.shadows[2],
+                          borderColor: theme.palette.divider,
+                        }}
+                        labelStyle={{ fontWeight: 600 }}
+                        itemStyle={{ color: theme.palette.text.primary }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke={theme.palette.primary.main}
+                        strokeWidth={3}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </Box>
+              </SectionContent>
+            </PageCard>
+          </>
+        ) : null}
+      </StyledContainer>
+    </PageContainer>
   );
 };
 

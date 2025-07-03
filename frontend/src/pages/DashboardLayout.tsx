@@ -1,27 +1,25 @@
 import React from 'react';
-import { Box } from '@mui/material';
-import Sidebar from '../components/Sidebar';
-import Navbar from '../components/Navbar';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import Sidebar from '../components/Sidebar';
 import PositionsPage from './PositionsPage';
 import AnalyticsPage from './AnalyticsPage';
 import NewsPage from './NewsPage';
 import ProfilePage from './ProfilePage';
+import { DashboardContainer, MainContent } from '../components/layout/Styled';
 
 const DashboardLayout: React.FC = () => (
-  <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+  <DashboardContainer>
     <Sidebar />
-    <Box component="main" sx={{ flexGrow: 1 }}>
-      <Navbar />
+    <MainContent>
       <Routes>
         <Route path="/" element={<Navigate to="positions" replace />} />
         <Route path="positions" element={<PositionsPage />} />
-        <Route path="analytics" element={<AnalyticsPage />} />
-        <Route path="news" element={<NewsPage />} />
-        <Route path="profile" element={<ProfilePage />} />
+        <Route path="analytics"  element={<AnalyticsPage  />} />
+        <Route path="news"       element={<NewsPage       />} />
+        <Route path="profile"    element={<ProfilePage    />} />
       </Routes>
-    </Box>
-  </Box>
+    </MainContent>
+  </DashboardContainer>
 );
 
 export default DashboardLayout;
