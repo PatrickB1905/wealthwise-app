@@ -36,21 +36,22 @@ export default function positionsRoutes(prisma: PrismaClient) {
     async (req: AuthRequest, res: Response, next: NextFunction) => {
       try {
         const userId = req.auth!.userId;
-        const { ticker, quantity, buyPrice } = req.body;
+        const { ticker, quantity, buyPrice, buyDate } = req.body;
         if (!ticker || quantity == null || buyPrice == null) {
           return res
             .status(400)
             .json({ error: 'ticker, quantity and buyPrice are required' });
         }
 
-        const position = await prisma.position.create({
-          data: {
-            userId,
-            ticker,
-            quantity: Number(quantity),
-            buyPrice: Number(buyPrice),
-          },
-        });
+        const data: any = {
+          userId,
+          ticker,
+          quantity: Number(quantity),
+          buyPrice: Number(buyPrice),
+        };
+        if (buyDate) data.buyDate = new Date(buyDate);
+
+        const position = await prisma.position.create({ data });
 
         const io: SocketIOServer = req.app.locals.io;
         io.to(`user_${userId}`).emit('position:added', position);
@@ -68,7 +69,7 @@ export default function positionsRoutes(prisma: PrismaClient) {
       try {
         const userId = req.auth!.userId;
         const id = Number(req.params.id);
-        const { sellPrice } = req.body;
+        const { sellPrice, sellDate } = req.body;
         if (sellPrice == null) {
           return res.status(400).json({ error: 'sellPrice is required' });
         }
@@ -80,12 +81,14 @@ export default function positionsRoutes(prisma: PrismaClient) {
             .json({ error: 'Position not found or already closed' });
         }
 
+        const data: any = {
+          sellPrice: Number(sellPrice),
+        };
+        data.sellDate = sellDate ? new Date(sellDate) : new Date();
+
         const updated = await prisma.position.update({
           where: { id },
-          data: {
-            sellPrice: Number(sellPrice),
-            sellDate: new Date(),
-          },
+          data,
         });
 
         const io: SocketIOServer = req.app.locals.io;
@@ -104,7 +107,7 @@ export default function positionsRoutes(prisma: PrismaClient) {
       try {
         const userId = req.auth!.userId;
         const id = Number(req.params.id);
-        const { quantity, buyPrice, sellPrice } = req.body;
+        const { quantity, buyPrice, buyDate, sellPrice, sellDate } = req.body;
 
         if (quantity == null || buyPrice == null) {
           return res
@@ -117,15 +120,17 @@ export default function positionsRoutes(prisma: PrismaClient) {
           return res.status(404).json({ error: 'Position not found' });
         }
 
+        const data: any = {
+          quantity: Number(quantity),
+          buyPrice: Number(buyPrice),
+        };
+        if (buyDate) data.buyDate = new Date(buyDate);
+        if (sellPrice != null) data.sellPrice = Number(sellPrice);
+        if (sellDate) data.sellDate = new Date(sellDate);
+
         const updated = await prisma.position.update({
           where: { id },
-          data: {
-            quantity: Number(quantity),
-            buyPrice:  Number(buyPrice),
-            ...(sellPrice != null
-              ? { sellPrice: Number(sellPrice) }
-              : {}),
-          },
+          data,
         });
 
         const io: SocketIOServer = req.app.locals.io;

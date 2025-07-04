@@ -49,14 +49,14 @@ const ZERO_COLOR = '#000000';
 
 const RANGE_OPTIONS = [
   { label: '12 M', months: 12 },
-  { label: '6 M',  months: 6 },
-  { label: '3 M',  months: 3 },
-  { label: '1 M',  months: 1 },
+  { label: '6 M', months: 6 },
+  { label: '3 M', months: 3 },
+  { label: '1 M', months: 1 },
 ];
 
 const AnalyticsPage: React.FC = () => {
   const theme = useTheme();
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
 
   usePositionWS();
@@ -68,8 +68,9 @@ const AnalyticsPage: React.FC = () => {
     queryFn: () =>
       AnalyticsAPI.get<Summary>('/analytics/summary', {
         params: { userId: user!.id },
-      }).then(r => r.data),
+      }).then(res => res.data),
     enabled: Boolean(user),
+    keepPreviousData: true,
     refetchOnWindowFocus: false,
   });
 
@@ -78,16 +79,15 @@ const AnalyticsPage: React.FC = () => {
     queryFn: () =>
       AnalyticsAPI.get<HistoryItem[]>('/analytics/history', {
         params: { userId: user!.id, months: range },
-      }).then(r => r.data),
+      }).then(res => res.data),
     enabled: Boolean(user),
     keepPreviousData: true,
     refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
-    qc.invalidateQueries(['analytics', 'summary']);
-    qc.invalidateQueries(['analytics', 'history', range]);
-  }, [qc, range]);
+    queryClient.invalidateQueries(['analytics', 'history', range]);
+  }, [range, queryClient]);
 
   const summary = summaryQuery.data;
   const history = historyQuery.data || [];
@@ -127,15 +127,10 @@ const AnalyticsPage: React.FC = () => {
           <Alert severity="error">{errorMsg}</Alert>
         ) : summary ? (
           <>
-            <Box
-              display="flex"
-              flexWrap="wrap"
-              gap={2}
-              mb={3}
-            >
+            <Box display="flex" flexWrap="wrap" gap={2} mb={3}>
               {[
                 {
-                  title: 'Money Invested',
+                  title: 'Total Money Invested',
                   value: `$${summary.invested.toFixed(2)}`,
                   color: theme.palette.text.primary,
                 },
@@ -150,11 +145,7 @@ const AnalyticsPage: React.FC = () => {
                   color: pctColor,
                 },
               ].map(item => (
-                <Box
-                  key={item.title}
-                  flex="1 1 calc(33.333% - 16px)"
-                  minWidth="200px"
-                >
+                <Box key={item.title} flex="1 1 calc(33.333% - 16px)" minWidth="200px">
                   <PageCard>
                     <SectionHeader
                       title={item.title}
@@ -164,11 +155,7 @@ const AnalyticsPage: React.FC = () => {
                       }}
                     />
                     <SectionContent>
-                      <Typography
-                        variant="h5"
-                        fontWeight="bold"
-                        sx={{ color: item.color }}
-                      >
+                      <Typography variant="h5" fontWeight="bold" sx={{ color: item.color }}>
                         {item.value}
                       </Typography>
                     </SectionContent>
@@ -208,17 +195,19 @@ const AnalyticsPage: React.FC = () => {
                   <ResponsiveContainer>
                     <LineChart data={history}>
                       <CartesianGrid
-                        strokeDasharray="3 3"
                         stroke={theme.palette.divider}
+                        strokeDasharray="3 3"
                       />
                       <XAxis
                         dataKey="date"
                         tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
                       />
                       <YAxis
+                        tickFormatter={val => `$${val.toFixed(0)}`}
                         tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
                       />
                       <Tooltip
+                        formatter={(val: number) => [`$${val.toFixed(2)}`, 'P/L']}
                         contentStyle={{
                           borderRadius: 8,
                           boxShadow: theme.shadows[2],

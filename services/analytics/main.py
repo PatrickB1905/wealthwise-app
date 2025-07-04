@@ -11,17 +11,18 @@ import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
-MARKET_DATA_URL = os.getenv("MARKET_DATA_URL")
-FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN")
-PORT = int(os.getenv("PORT", 6000))
+DATABASE_URL     = os.getenv("DATABASE_URL")
+MARKET_DATA_URL  = os.getenv("MARKET_DATA_URL")
+FRONTEND_ORIGIN  = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+PORT             = int(os.getenv("PORT", 6000))
 
 app = FastAPI(title="Analytics Service")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[FRONTEND_ORIGIN],
     allow_credentials=True,
-    allow_methods=["GET"],
+    allow_methods=["GET", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -59,18 +60,24 @@ def get_summary(userId: int = Query(..., description="User ID")):
 
     invested = sum(r["quantity"] * r["buy_price"] for r in rows)
     closed_positions = [r for r in rows if r["sell_date"] is not None]
-    open_positions = [r for r in rows if r["sell_date"] is None]
+    open_positions   = [r for r in rows if r["sell_date"] is None]
 
-    closed_pl = sum((r["sell_price"] - r["buy_price"]) * r["quantity"] for r in closed_positions)
+    closed_pl = sum(
+        (r["sell_price"] - r["buy_price"]) * r["quantity"]
+        for r in closed_positions
+    )
 
     open_pl = 0.0
     if open_positions:
         symbols = ",".join({r["ticker"] for r in open_positions})
         try:
-            resp = requests.get(f"{MARKET_DATA_URL}/quotes", params={"symbols": symbols}, timeout=5)
+            resp = requests.get(
+                f"{MARKET_DATA_URL}/quotes",
+                params={"symbols": symbols},
+                timeout=5
+            )
             resp.raise_for_status()
-            quotes = resp.json()
-            quote_map = {q["symbol"]: q["currentPrice"] for q in quotes}
+            quote_map = {q["symbol"]: q["currentPrice"] for q in resp.json()}
             for r in open_positions:
                 cp = quote_map.get(r["ticker"], 0.0)
                 open_pl += (cp - r["buy_price"]) * r["quantity"]
@@ -107,7 +114,7 @@ def get_history(
     with engine.connect() as conn:
         rows = conn.execute(sql, {"uid": userId}).mappings().all()
 
-    now = datetime.now()
+    now   = datetime.now()
     dates = pd.date_range(end=now, periods=months, freq="ME").to_pydatetime().tolist()
 
     tickers = list({r["ticker"] for r in rows})
@@ -117,33 +124,39 @@ def get_history(
     hist_data: dict[str, pd.Series] = {}
     for sym in tickers:
         try:
-            tk = yf.Ticker(sym)
-            df = tk.history(period=f"{months+1}mo", interval="1mo", actions=False)
-            hist_data[sym] = df["Close"]
+            df = yf.Ticker(sym).history(period=f"{months+1}mo", interval="1mo", actions=False)
+            series = df["Close"]
+            if getattr(series.index, "tz", None) is not None:
+                series.index = series.index.tz_convert(None)
+            hist_data[sym] = series
         except Exception as e:
             logging.error(f"Error fetching history for {sym}: {e}")
             hist_data[sym] = pd.Series(dtype=float)
 
     history: list[HistoryItem] = []
     for dt in dates:
-        total_val = 0.0
+        total_profit = 0.0
         for r in rows:
-            q = r["quantity"]
-            bp = r["buy_price"]
-            sp = r["sell_price"]
-            sd = r["sell_date"]
-            bd = r["buy_date"]
+            q   = r["quantity"]
+            bp  = r["buy_price"]
+            sp  = r["sell_price"]
+            sd  = r["sell_date"]
+            bd  = r["buy_date"]
 
             if bd > dt:
                 continue
 
             if sd is not None and sd <= dt:
-                total_val += sp * q
+                total_profit += (sp - bp) * q
             else:
                 series = hist_data.get(r["ticker"], pd.Series(dtype=float))
                 idx = series.index[series.index <= dt]
-                price = float(series.loc[idx[-1]]) if len(idx) > 0 else 0.0
-                total_val += price * q
-        history.append(HistoryItem(date=dt.strftime("%Y-%m-%d"), value=round(total_val, 2)))
+                if len(idx) > 0:
+                    price = float(series.loc[idx[-1]])
+                else:
+                    price = 0.0
+                total_profit += (price - bp) * q
+
+        history.append(HistoryItem(date=dt.strftime("%Y-%m-%d"),value=round(total_profit, 2)))
 
     return history

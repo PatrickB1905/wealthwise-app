@@ -25,6 +25,9 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs, { Dayjs } from 'dayjs';
 import API from '../api/axios';
 import { usePositionWS } from '../hooks/usePositionWS';
 import { useQuotes } from '../hooks/useQuotes';
@@ -42,7 +45,9 @@ interface Position {
   ticker: string;
   quantity: number;
   buyPrice: number;
+  buyDate: string;
   sellPrice?: number;
+  sellDate?: string;
 }
 
 interface Quote {
@@ -57,21 +62,22 @@ const ZERO_COLOR     = '#000000';
 
 const PositionsPage: React.FC = () => {
   usePositionWS();
-
   const qc = useQueryClient();
   const [tab, setTab] = useState<'open' | 'closed'>('open');
 
-  const [addOpen,    setAddOpen]    = useState(false);
-  const [closeOpen,  setCloseOpen]  = useState(false);
-  const [editOpen,   setEditOpen]   = useState(false);
+  const [addOpen, setAddOpen]       = useState(false);
+  const [closeOpen, setCloseOpen]   = useState(false);
+  const [editOpen, setEditOpen]     = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [selected,   setSelected]   = useState<Position | null>(null);
+  const [selected, setSelected]     = useState<Position | null>(null);
 
-  const [newTicker,    setNewTicker]    = useState('');
-  const [newQuantity,  setNewQuantity]  = useState('');
-  const [newBuyPrice,  setNewBuyPrice]  = useState('');
+  const [newTicker, setNewTicker]       = useState('');
+  const [newQuantity, setNewQuantity]   = useState('');
+  const [newBuyPrice, setNewBuyPrice]   = useState('');
+  const [newBuyDate, setNewBuyDate]     = useState<Dayjs | null>(dayjs());
   const [newSellPrice, setNewSellPrice] = useState('');
-  const [tickerError,  setTickerError]  = useState('');
+  const [newSellDate, setNewSellDate]   = useState<Dayjs | null>(dayjs());
+  const [tickerError, setTickerError]   = useState('');
 
   const {
     data: positions = [],
@@ -79,36 +85,41 @@ const PositionsPage: React.FC = () => {
     error: posError,
   } = useQuery<Position[], Error>({
     queryKey: ['positions', tab],
-    queryFn: () =>
-      API.get<Position[]>(`/positions?status=${tab}`).then(r => r.data),
+    queryFn: () => API.get(`/positions?status=${tab}`).then(r => r.data),
     keepPreviousData: true,
     refetchOnWindowFocus: false,
   });
 
   const tickers = positions.map(p => p.ticker);
-  const {
-    data: quotesArray = [],
-    isLoading: quotesLoading,
-  } = useQuotes(tickers);
-
+  const { data: quotesArray = [], isLoading: quotesLoading } = useQuotes(tickers);
   const quotesMap = useMemo<Record<string, Quote>>(() => {
     const m: Record<string, Quote> = {};
-    quotesArray.forEach(q => { m[q.symbol] = q; });
+    quotesArray.forEach(q => m[q.symbol] = q);
     return m;
   }, [quotesArray]);
 
-  const addPosition = useMutation({
-    mutationFn: (newPos: { ticker: string; quantity: number; buyPrice: number }) =>
-      API.post('/positions', newPos).then(r => r.data),
+  const addPosition = useMutation<
+    Position,
+    Error,
+    { ticker: string; quantity: number; buyPrice: number; buyDate?: string }
+  >({
+    mutationFn: newPos => API.post('/positions', newPos).then(r => r.data),
     onSuccess: () => {
       qc.invalidateQueries(['positions', 'open']);
       setAddOpen(false);
     },
   });
 
-  const closePosition = useMutation({
-    mutationFn: (vars: { id: number; sellPrice: number }) =>
-      API.put(`/positions/${vars.id}/close`, { sellPrice: vars.sellPrice }).then(r => r.data),
+  const closePosition = useMutation<
+    Position,
+    Error,
+    { id: number; sellPrice: number; sellDate?: string }
+  >({
+    mutationFn: vars =>
+      API.put(`/positions/${vars.id}/close`, {
+        sellPrice: vars.sellPrice,
+        sellDate: vars.sellDate,
+      }).then(r => r.data),
     onSuccess: () => {
       qc.invalidateQueries(['positions', 'open']);
       qc.invalidateQueries(['positions', 'closed']);
@@ -117,20 +128,20 @@ const PositionsPage: React.FC = () => {
     },
   });
 
-  const editPosition = useMutation({
-    mutationFn: (vars: {
+  const editPosition = useMutation<
+    Position,
+    Error,
+    {
       id: number;
       quantity: number;
       buyPrice: number;
+      buyDate?: string;
       sellPrice?: number;
-    }) =>
-      API.put(`/positions/${vars.id}`, {
-        quantity: vars.quantity,
-        buyPrice: vars.buyPrice,
-        ...(tab === 'closed' && vars.sellPrice !== undefined
-          ? { sellPrice: vars.sellPrice }
-          : {}),
-      }).then(r => r.data),
+      sellDate?: string;
+    }
+  >({
+    mutationFn: vars =>
+      API.put(`/positions/${vars.id}`, vars).then(r => r.data),
     onSuccess: () => {
       qc.invalidateQueries(['positions', tab]);
       setEditOpen(false);
@@ -138,8 +149,8 @@ const PositionsPage: React.FC = () => {
     },
   });
 
-  const deletePosition = useMutation({
-    mutationFn: (id: number) => API.delete(`/positions/${id}`),
+  const deletePosition = useMutation<void, Error, number>({
+    mutationFn: id => API.delete(`/positions/${id}`),
     onSuccess: () => {
       qc.invalidateQueries(['positions', tab]);
       setDeleteOpen(false);
@@ -158,12 +169,17 @@ const PositionsPage: React.FC = () => {
       ticker: sym,
       quantity: Number(newQuantity),
       buyPrice: Number(newBuyPrice),
+      buyDate: newBuyDate?.toISOString(),
     });
   };
 
   const onCloseSubmit = () => {
     if (!selected) return;
-    closePosition.mutate({ id: selected.id, sellPrice: Number(newSellPrice) });
+    closePosition.mutate({
+      id: selected.id,
+      sellPrice: Number(newSellPrice),
+      sellDate: newSellDate?.toISOString(),
+    });
   };
 
   const onEditSubmit = () => {
@@ -172,7 +188,13 @@ const PositionsPage: React.FC = () => {
       id: selected.id,
       quantity: Number(newQuantity),
       buyPrice: Number(newBuyPrice),
-      sellPrice: tab === 'closed' ? Number(newSellPrice) : undefined,
+      buyDate: newBuyDate?.toISOString(),
+      ...(tab === 'closed'
+        ? {
+            sellPrice: Number(newSellPrice),
+            sellDate: newSellDate?.toISOString(),
+          }
+        : {}),
     });
   };
 
@@ -186,8 +208,8 @@ const PositionsPage: React.FC = () => {
     positions.forEach(p => {
       const cost = p.buyPrice * p.quantity;
       const price = tab === 'open'
-        ? quotesMap[p.ticker]?.currentPrice ?? (cost / p.quantity)
-        : (p.sellPrice ?? p.buyPrice);
+        ? quotesMap[p.ticker]?.currentPrice ?? cost / p.quantity
+        : p.sellPrice ?? p.buyPrice;
       invested += cost;
       profit += price * p.quantity - cost;
     });
@@ -206,7 +228,16 @@ const PositionsPage: React.FC = () => {
             title={tab === 'open' ? 'Open Positions' : 'Closed Positions'}
             action={
               tab === 'open' && (
-                <Button onClick={() => setAddOpen(true)} variant="contained">
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    setNewTicker('');
+                    setNewQuantity('');
+                    setNewBuyPrice('');
+                    setNewBuyDate(dayjs());
+                    setAddOpen(true);
+                  }}
+                >
                   Add Position
                 </Button>
               )
@@ -261,8 +292,8 @@ const PositionsPage: React.FC = () => {
                     {positions.map(pos => {
                       const cost = pos.buyPrice * pos.quantity;
                       const price = tab === 'open'
-                        ? quotesMap[pos.ticker]?.currentPrice ?? (cost / pos.quantity)
-                        : (pos.sellPrice ?? pos.buyPrice);
+                        ? quotesMap[pos.ticker]?.currentPrice ?? cost / pos.quantity
+                        : pos.sellPrice ?? pos.buyPrice;
                       const profit = price * pos.quantity - cost;
                       const pct = cost ? (profit / cost) * 100 : 0;
                       const colorPct = pct > 0
@@ -303,10 +334,10 @@ const PositionsPage: React.FC = () => {
                               <Button
                                 size="small"
                                 variant="outlined"
-                                sx={{ borderRadius: 2, px: 1.5 }}
                                 onClick={() => {
                                   setSelected(pos);
                                   setNewSellPrice('');
+                                  setNewSellDate(dayjs());
                                   setCloseOpen(true);
                                 }}
                               >
@@ -316,12 +347,13 @@ const PositionsPage: React.FC = () => {
                             <Button
                               size="small"
                               variant="outlined"
-                              sx={{ mx:1, borderRadius:2, px:1.5 }}
+                              sx={{ mx: 1 }}
                               onClick={() => {
                                 setSelected(pos);
                                 setNewQuantity(String(pos.quantity));
                                 setNewBuyPrice(String(pos.buyPrice));
-                                setNewSellPrice(pos.sellPrice?.toString() ?? '');
+                                setNewBuyDate(dayjs(pos.buyDate));
+                                if (pos.sellDate) setNewSellDate(dayjs(pos.sellDate));
                                 setEditOpen(true);
                               }}
                             >
@@ -331,7 +363,6 @@ const PositionsPage: React.FC = () => {
                               size="small"
                               variant="outlined"
                               color="error"
-                              sx={{ borderRadius:2, px:1.5 }}
                               onClick={() => {
                                 setSelected(pos);
                                 setDeleteOpen(true);
@@ -344,7 +375,6 @@ const PositionsPage: React.FC = () => {
                       );
                     })}
                   </TableBody>
-
                   <TableFooter>
                     <TableRow sx={{ borderTop: t => `2px solid ${t.palette.divider}` }}>
                       <TableCell><strong>Totals</strong></TableCell>
@@ -360,7 +390,7 @@ const PositionsPage: React.FC = () => {
                           color:
                             totalProfitPct > 0 ? POSITIVE_COLOR :
                             totalProfitPct < 0 ? NEGATIVE_COLOR :
-                            ZERO_COLOR
+                            ZERO_COLOR,
                         }}
                       >
                         <strong>{totalProfitPct.toFixed(2)}%</strong>
@@ -371,7 +401,7 @@ const PositionsPage: React.FC = () => {
                           color:
                             totalProfit > 0 ? POSITIVE_COLOR :
                             totalProfit < 0 ? NEGATIVE_COLOR :
-                            ZERO_COLOR
+                            ZERO_COLOR,
                         }}
                       >
                         <strong>${totalProfit.toFixed(2)}</strong>
@@ -390,30 +420,27 @@ const PositionsPage: React.FC = () => {
         <DialogTitle>Add New Position</DialogTitle>
         <DialogContent>
           <TextField
-            fullWidth
-            margin="dense"
-            label="Ticker"
-            value={newTicker}
-            error={!!tickerError}
-            helperText={tickerError}
+            fullWidth margin="dense" label="Ticker"
+            value={newTicker} error={!!tickerError} helperText={tickerError}
             onChange={e => setNewTicker(e.target.value)}
           />
           <TextField
-            fullWidth
-            margin="dense"
-            label="Quantity"
-            type="number"
-            value={newQuantity}
-            onChange={e => setNewQuantity(e.target.value)}
+            fullWidth margin="dense" label="Quantity" type="number"
+            value={newQuantity} onChange={e => setNewQuantity(e.target.value)}
           />
           <TextField
-            fullWidth
-            margin="dense"
-            label="Buy Price"
-            type="number"
-            value={newBuyPrice}
-            onChange={e => setNewBuyPrice(e.target.value)}
+            fullWidth margin="dense" label="Buy Price" type="number"
+            value={newBuyPrice} onChange={e => setNewBuyPrice(e.target.value)}
           />
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DatePicker
+              label="Buy Date"
+              value={newBuyDate}
+              onChange={d => setNewBuyDate(d)}
+              disableFuture
+              renderInput={params => <TextField {...params} fullWidth margin="dense" />}
+            />
+          </LocalizationProvider>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddOpen(false)}>Cancel</Button>
@@ -431,13 +458,18 @@ const PositionsPage: React.FC = () => {
         <DialogTitle>Close Position {selected?.ticker}</DialogTitle>
         <DialogContent>
           <TextField
-            fullWidth
-            margin="dense"
-            label="Sell Price"
-            type="number"
-            value={newSellPrice}
-            onChange={e => setNewSellPrice(e.target.value)}
+            fullWidth margin="dense" label="Sell Price" type="number"
+            value={newSellPrice} onChange={e => setNewSellPrice(e.target.value)}
           />
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DatePicker
+              label="Sell Date"
+              value={newSellDate}
+              onChange={d => setNewSellDate(d)}
+              disableFuture
+              renderInput={params => <TextField {...params} fullWidth margin="dense" />}
+            />
+          </LocalizationProvider>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCloseOpen(false)}>Cancel</Button>
@@ -455,30 +487,38 @@ const PositionsPage: React.FC = () => {
         <DialogTitle>Edit Position {selected?.ticker}</DialogTitle>
         <DialogContent>
           <TextField
-            fullWidth
-            margin="dense"
-            label="Quantity"
-            type="number"
-            value={newQuantity}
-            onChange={e => setNewQuantity(e.target.value)}
+            fullWidth margin="dense" label="Quantity" type="number"
+            value={newQuantity} onChange={e => setNewQuantity(e.target.value)}
           />
           <TextField
-            fullWidth
-            margin="dense"
-            label="Buy Price"
-            type="number"
-            value={newBuyPrice}
-            onChange={e => setNewBuyPrice(e.target.value)}
+            fullWidth margin="dense" label="Buy Price" type="number"
+            value={newBuyPrice} onChange={e => setNewBuyPrice(e.target.value)}
           />
-          {tab === 'closed' && (
-            <TextField
-              fullWidth
-              margin="dense"
-              label="Sell Price"
-              type="number"
-              value={newSellPrice}
-              onChange={e => setNewSellPrice(e.target.value)}
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DatePicker
+              label="Buy Date"
+              value={newBuyDate}
+              onChange={d => setNewBuyDate(d)}
+              disableFuture
+              renderInput={params => <TextField {...params} fullWidth margin="dense" />}
             />
+          </LocalizationProvider>
+          {tab === 'closed' && (
+            <>
+              <TextField
+                fullWidth margin="dense" label="Sell Price" type="number"
+                value={newSellPrice} onChange={e => setNewSellPrice(e.target.value)}
+              />
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <DatePicker
+                  label="Sell Date"
+                  value={newSellDate}
+                  onChange={d => setNewSellDate(d)}
+                  disableFuture
+                  renderInput={params => <TextField {...params} fullWidth margin="dense" />}
+                />
+              </LocalizationProvider>
+            </>
           )}
         </DialogContent>
         <DialogActions>
