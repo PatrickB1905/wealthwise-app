@@ -4,6 +4,15 @@
 
 ---
 
+## Live Demonstration
+
+A live deployed demonstration of this project can be found at the following link:
+https://800b-173-238-133-253.ngrok-free.app
+
+> _Please note that this live demonstration is hosted on a Raspberry Pi using Ngrok and therefore there may be some latency on the initial load of the project_
+
+---
+
 ## 🚀 Architecture Overview
 
 WealthWise is composed of multiple microservices and a React frontend:
@@ -41,6 +50,8 @@ docker run --rm -d   --name wealthwise-db   -e POSTGRES_USER=postgres   -e POSTG
 ```bash
 cd services/positions
 cp .env.example .env
+# apply all prisma migrations
+npx prisma migrate dev
 # generate Prisma client
 npx prisma generate
 # install dependencies
