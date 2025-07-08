@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import MarketAPI from '../api/marketData';
-import { io, type Socket } from 'socket.io-client';
+import { getSocket } from '../utils/socket';
 
 interface RemoteQuote {
   symbol: string;
@@ -10,8 +10,6 @@ interface RemoteQuote {
   logoUrl: string;
 }
 
-let socket: Socket;
-
 export function useQuotes(symbols: string[]) {
   const queryClient = useQueryClient();
   const sortedKey = [...symbols].sort().join(',');
@@ -19,19 +17,17 @@ export function useQuotes(symbols: string[]) {
   const result = useQuery<RemoteQuote[], Error>({
     queryKey: ['quotes', sortedKey],
     queryFn: () =>
-      MarketAPI.get<RemoteQuote[]>('/quotes', { params: { symbols: symbols.join(',') } })
-        .then(res => res.data),
+      MarketAPI.get<RemoteQuote[]>('/quotes', {
+        params: { symbols: symbols.join(',') },
+      }).then(res => res.data),
     enabled: symbols.length > 0,
     keepPreviousData: true,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
 
-  useEffect(() => {
-    if (!socket) {
-      socket = io('http://localhost:4000', { auth: {} });
-    }
-    const handler = (updates: Array<{ symbol: string; currentPrice: number; dailyChangePercent: number; }>) => {
+  const handler = useCallback(
+    (updates: Array<{ symbol: string; currentPrice: number; dailyChangePercent: number }>) => {
       queryClient.setQueryData<RemoteQuote[]>(['quotes', sortedKey], old => {
         if (!old) return old;
         return old.map(q => {
@@ -41,13 +37,18 @@ export function useQuotes(symbols: string[]) {
             : q;
         });
       });
-    };
+    },
+    [queryClient, sortedKey]
+  );
 
+  useEffect(() => {
+    if (symbols.length === 0) return;
+    const socket = getSocket();
     socket.on('price:update', handler);
     return () => {
       socket.off('price:update', handler);
     };
-  }, [queryClient, sortedKey]);
+  }, [handler, symbols.length]);
 
   return result;
 }

@@ -1,29 +1,28 @@
-import { useEffect } from 'react';
-import { io, type Socket } from 'socket.io-client';
-import { useAuth } from '../context/AuthContext';
+import { useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-
-let socket: Socket;
+import { getSocket } from '../utils/socket';
 
 export function usePositionWS() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
 
   useEffect(() => {
-    if (!user) return;
+    const socket = getSocket();
 
-    socket = io('http://localhost:4000', {
-      auth: { userId: user.id }
-    });
-    socket.emit('join', user.id);
+    const onAdded   = () => qc.invalidateQueries('positions');
+    const onClosed  = () => qc.invalidateQueries('positions');
+    const onUpdated = () => qc.invalidateQueries('positions');
+    const onDeleted = () => qc.invalidateQueries('positions');
 
-    socket.on('position:added',   () => queryClient.invalidateQueries(['positions']));
-    socket.on('position:closed',  () => queryClient.invalidateQueries(['positions']));
-    socket.on('position:updated', () => queryClient.invalidateQueries(['positions']));
-    socket.on('position:deleted', () => queryClient.invalidateQueries(['positions']));
+    socket.on('position:added',   onAdded);
+    socket.on('position:closed',  onClosed);
+    socket.on('position:updated', onUpdated);
+    socket.on('position:deleted', onDeleted);
 
-    return () => { socket.disconnect(); };
-  }, [user, queryClient]);
-
-  return socket;
+    return () => {
+      socket.off('position:added',   onAdded);
+      socket.off('position:closed',  onClosed);
+      socket.off('position:updated', onUpdated);
+      socket.off('position:deleted', onDeleted);
+    };
+  }, [qc]);
 }
