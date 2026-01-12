@@ -4,15 +4,6 @@
 
 ---
 
-## Live Demonstration
-
-A live deployed demonstration of this project can be found at the following link:
-https://91ac9bcc7267.ngrok-free.app
-
-> _Please note that this live demonstration is hosted on a Raspberry Pi using Ngrok and therefore there may be some latency on the initial load of the project_
-
----
-
 ## 🚀 Architecture Overview
 
 WealthWise is composed of multiple microservices and a React frontend:
