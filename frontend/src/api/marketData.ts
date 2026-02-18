@@ -1,8 +1,8 @@
-import axios from 'axios';
+import { createHttpClient, envApiUrl } from './http'
 
-const MarketAPI = axios.create({
-  baseURL: 'http://localhost:5000/api',
-  headers: { 'Content-Type': 'application/json' },
-});
+const MarketAPI = createHttpClient({
+  baseURL: envApiUrl('VITE_MARKET_API_URL', 'http://localhost:5000/api'),
+  withAuth: true,
+})
 
-export default MarketAPI;
+export default MarketAPI

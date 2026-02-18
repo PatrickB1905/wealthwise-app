@@ -1,8 +1,8 @@
-import axios from 'axios';
+import { createHttpClient, envApiUrl } from './http'
 
-const NewsAPI = axios.create({
-  baseURL: 'http://localhost:6500/api',
-  headers: { 'Content-Type': 'application/json' },
-});
+const NewsAPI = createHttpClient({
+  baseURL: envApiUrl('VITE_NEWS_API_URL', 'http://localhost:6500/api'),
+  withAuth: true,
+})
 
-export default NewsAPI;
+export default NewsAPI

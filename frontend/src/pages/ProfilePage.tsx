@@ -11,9 +11,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import axios from 'axios'
 import API from '../api/axios'
 import { useAuth } from '../context/useAuth'
+import { getApiErrorMessage } from '../api/http'
 import {
   CenteredBox,
   PageCard,
@@ -32,14 +32,6 @@ type Profile = {
 }
 
 type BannerMsg = { type: 'success' | 'error'; text: string }
-
-function getErrorMessage(err: unknown, fallback: string): string {
-  if (axios.isAxiosError(err)) {
-    const msg = (err.response?.data as { error?: string } | undefined)?.error
-    return msg ?? fallback
-  }
-  return fallback
-}
 
 const ProfilePage: React.FC = () => {
   const { logout } = useAuth()
@@ -64,19 +56,17 @@ const ProfilePage: React.FC = () => {
         setProfile(res.data)
         setNewEmail(res.data.email)
       })
-      .catch(() => setError('Failed to load profile'))
+      .catch((err: unknown) => setError(getApiErrorMessage(err, 'Failed to load profile')))
       .finally(() => setLoading(false))
   }, [])
 
   const handleEmailUpdate = async () => {
     setEmailMsg(null)
     try {
-      const res = await API.put<{ email: string }>('/auth/me/email', {
-        email: newEmail,
-      })
+      const res = await API.put<{ email: string }>('/auth/me/email', { email: newEmail })
       setEmailMsg({ type: 'success', text: `Email updated to ${res.data.email}` })
     } catch (err: unknown) {
-      setEmailMsg({ type: 'error', text: getErrorMessage(err, 'Email update failed') })
+      setEmailMsg({ type: 'error', text: getApiErrorMessage(err, 'Email update failed') })
     }
   }
 
@@ -91,10 +81,7 @@ const ProfilePage: React.FC = () => {
       setCurrentPwd('')
       setNewPwd('')
     } catch (err: unknown) {
-      setPwdMsg({
-        type: 'error',
-        text: getErrorMessage(err, 'Password change failed'),
-      })
+      setPwdMsg({ type: 'error', text: getApiErrorMessage(err, 'Password change failed') })
     }
   }
 
@@ -104,7 +91,7 @@ const ProfilePage: React.FC = () => {
       await API.delete('/auth/me')
       logout()
     } catch (err: unknown) {
-      setDeleteError(getErrorMessage(err, 'Failed to delete account'))
+      setDeleteError(getApiErrorMessage(err, 'Failed to delete account'))
     }
   }
 
@@ -138,8 +125,7 @@ const ProfilePage: React.FC = () => {
               <strong>Name:</strong> {profile.firstName} {profile.lastName}
             </Typography>
             <Typography color="text.secondary">
-              <strong>Member since:</strong>{' '}
-              {new Date(profile.createdAt).toLocaleString()}
+              <strong>Member since:</strong> {new Date(profile.createdAt).toLocaleString()}
             </Typography>
           </SectionContent>
 
@@ -193,11 +179,7 @@ const ProfilePage: React.FC = () => {
               value={newPwd}
               onChange={(e) => setNewPwd(e.target.value)}
             />
-            <Button
-              variant="contained"
-              sx={{ mt: 1 }}
-              onClick={handlePasswordChange}
-            >
+            <Button variant="contained" sx={{ mt: 1 }} onClick={handlePasswordChange}>
               Change Password
             </Button>
           </SectionContent>
@@ -205,12 +187,7 @@ const ProfilePage: React.FC = () => {
           <Divider />
 
           <SectionContent>
-            <Button
-              variant="outlined"
-              color="error"
-              fullWidth
-              onClick={() => setDeleteOpen(true)}
-            >
+            <Button variant="outlined" color="error" fullWidth onClick={() => setDeleteOpen(true)}>
               Delete Account
             </Button>
           </SectionContent>
@@ -221,8 +198,7 @@ const ProfilePage: React.FC = () => {
         <DialogTitle>Confirm Account Deletion</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to permanently delete your account? This cannot
-            be undone.
+            Are you sure you want to permanently delete your account? This cannot be undone.
           </Typography>
           {deleteError && (
             <Alert severity="error" sx={{ mt: 2 }}>

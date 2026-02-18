@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { Alert, Link, TextField, Typography } from '@mui/material'
-import axios from 'axios'
 import { Link as RouterLink } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
+import { getApiErrorMessage } from '../api/http'
 
 import {
   AuthContainer,
@@ -13,14 +13,6 @@ import {
   HeroOverlay,
   HeroSection,
 } from '../components/layout/Styled'
-
-function getErrorMessage(err: unknown, fallback: string): string {
-  if (axios.isAxiosError(err)) {
-    const msg = (err.response?.data as { error?: string } | undefined)?.error
-    return msg ?? fallback
-  }
-  return fallback
-}
 
 const LoginPage: React.FC = () => {
   const { login } = useAuth()
@@ -35,7 +27,7 @@ const LoginPage: React.FC = () => {
     try {
       await login(email, password)
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Login failed'))
+      setError(getApiErrorMessage(err, 'Login failed'))
     }
   }
 

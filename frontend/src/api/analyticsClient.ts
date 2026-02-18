@@ -1,8 +1,8 @@
-import axios from 'axios';
+import { createHttpClient, envApiUrl } from './http'
 
-const AnalyticsAPI = axios.create({
-  baseURL: 'http://localhost:7000/api',
-  headers: { 'Content-Type': 'application/json' },
-});
+const AnalyticsAPI = createHttpClient({
+  baseURL: envApiUrl('VITE_ANALYTICS_API_URL', 'http://localhost:7000/api'),
+  withAuth: true,
+})
 
-export default AnalyticsAPI;
+export default AnalyticsAPI

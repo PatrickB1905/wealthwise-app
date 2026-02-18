@@ -1,18 +1,8 @@
-import axios from 'axios';
+import { createHttpClient, envApiUrl } from './http'
 
-const API = axios.create({
-  baseURL: 'http://localhost:4000/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+const API = createHttpClient({
+  baseURL: envApiUrl('VITE_POSITIONS_API_URL', 'http://localhost:4000/api'),
+  withAuth: true,
+})
 
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem('ww_token');
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-export default API;
+export default API
