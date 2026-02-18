@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
+
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -22,6 +23,9 @@ function App() {
           </PrivateRoute>
         }
       />
+
+      {/* Convenience redirect */}
+      <Route path="/app" element={<Navigate to="/app/positions" replace />} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
