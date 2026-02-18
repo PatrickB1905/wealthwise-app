@@ -2,16 +2,28 @@
 node_modules/
 dist/
 build/
+coverage/
+*.log
+
+# ─── Environment files ─────────────────────────────────────────────────────
 .env
+.env.*
+!.env.example
 
 # ─── Python ────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
-env/
+.venv/
 venv/
-*.env
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
 
-# ─── Editor & OS ──────────────────────────────────────────────────────────
+# ─── Editor & OS ───────────────────────────────────────────────────────────
 .vscode/
 .idea/
 .DS_Store

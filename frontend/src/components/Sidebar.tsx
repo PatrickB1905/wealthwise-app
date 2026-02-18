@@ -1,21 +1,19 @@
-import React from 'react';
-import { List, ListItemButton, ListItemText, Divider } from '@mui/material';
-import { styled, useTheme } from '@mui/material/styles';
+import React from 'react'
+import { Divider, List, ListItemButton, ListItemText } from '@mui/material'
+import { styled } from '@mui/material/styles'
+import AccountCircleIcon from '@mui/icons-material/AccountCircle'
+import AssessmentIcon from '@mui/icons-material/Assessment'
+import FeedIcon from '@mui/icons-material/Feed'
+import LogoutIcon from '@mui/icons-material/Logout'
+import ShowChartIcon from '@mui/icons-material/ShowChart'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import {
-  ShowChart,
-  Assessment,
-  Feed,
-  AccountCircle,
-  Logout,
-} from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import {
-  SidebarContainer,
   SidebarBrand,
-  SidebarPush,
+  SidebarContainer,
   SidebarIcon,
-} from './layout/Styled';
+  SidebarPush,
+} from './layout/Styled'
 
 const StyledListItem = styled(ListItemButton, {
   shouldForwardProp: (prop) => prop !== 'selected',
@@ -31,20 +29,41 @@ const StyledListItem = styled(ListItemButton, {
   '&:hover': {
     backgroundColor: theme.palette.action.hover,
   },
-}));
+}))
+
+type NavItem = {
+  label: string
+  icon: React.ReactNode
+  path: string
+}
 
 const Sidebar: React.FC = () => {
-  const theme = useTheme();
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
-  const { logout } = useAuth();
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const { logout } = useAuth()
 
-  const items = [
-    { label: 'Portfolio',       icon: <ShowChart />,     path: '/app/positions' },
-    { label: 'Analytics & Data',icon: <Assessment />,    path: '/app/analytics' },
-    { label: 'News',            icon: <Feed />,          path: '/app/news' },
-    { label: 'My Profile',      icon: <AccountCircle />, path: '/app/profile' },
-  ];
+  const items: NavItem[] = [
+    {
+      label: 'Portfolio',
+      icon: <ShowChartIcon />,
+      path: '/app/positions',
+    },
+    {
+      label: 'Analytics & Data',
+      icon: <AssessmentIcon />,
+      path: '/app/analytics',
+    },
+    {
+      label: 'News',
+      icon: <FeedIcon />,
+      path: '/app/news',
+    },
+    {
+      label: 'My Profile',
+      icon: <AccountCircleIcon />,
+      path: '/app/profile',
+    },
+  ]
 
   return (
     <SidebarContainer variant="permanent">
@@ -52,7 +71,7 @@ const Sidebar: React.FC = () => {
       <Divider />
 
       <List>
-        {items.map(item => (
+        {items.map((item) => (
           <StyledListItem
             key={item.label}
             selected={pathname.startsWith(item.path)}
@@ -71,13 +90,13 @@ const Sidebar: React.FC = () => {
       <List>
         <StyledListItem onClick={logout}>
           <SidebarIcon>
-            <Logout />
+            <LogoutIcon />
           </SidebarIcon>
           <ListItemText primary="Logout" />
         </StyledListItem>
       </List>
     </SidebarContainer>
-  );
-};
+  )
+}
 
-export default Sidebar;
+export default Sidebar
