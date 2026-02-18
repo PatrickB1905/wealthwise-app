@@ -1,27 +1,20 @@
-import React from 'react';
-import {
-  Box,
-  Container,
-  Grid,
-  Typography,
-  Button,
-  useTheme,
-} from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import React from 'react'
+import { Box, Container, Grid, Typography, useTheme } from '@mui/material'
+import { useNavigate } from 'react-router-dom'
 
 import {
-  HomeHero,
-  HeroOverlay,
-  HeroContent,
   CTAButton,
   CTAOutlineButton,
-  FeaturesSection,
   FeatureCard,
   FeatureIcon,
+  FeaturesSection,
   FooterSection,
-  SectionHeader,
+  HeroContent,
+  HeroOverlay,
+  HomeHero,
   SectionContent,
-} from '../components/layout/Styled';
+  SectionHeader,
+} from '../components/layout/Styled'
 
 const features = [
   {
@@ -42,11 +35,11 @@ const features = [
       'Receive curated market news and sentiment analysis around your exact positions!',
     icon: '/news.png',
   },
-];
+] as const
 
 const HomePage: React.FC = () => {
-  const nav = useNavigate();
-  const theme = useTheme();
+  const nav = useNavigate()
+  const theme = useTheme()
 
   return (
     <>
@@ -57,16 +50,11 @@ const HomePage: React.FC = () => {
             WealthWise
           </Typography>
           <Typography variant="h5" gutterBottom>
-            The only platform you need to track, analyze, and stay informed on your entire
-            portfolio—stocks & crypto alike!
+            The only platform you need to track, analyze, and stay informed on your
+            entire portfolio—stocks &amp; crypto alike!
           </Typography>
-          <Box
-            mt={4}
-            display="flex"
-            justifyContent="center"
-            gap={2}
-            flexWrap="wrap"
-          >
+
+          <Box mt={4} display="flex" justifyContent="center" gap={2} flexWrap="wrap">
             <CTAButton
               size="large"
               onClick={() => nav('/register')}
@@ -78,6 +66,7 @@ const HomePage: React.FC = () => {
             >
               Get Started
             </CTAButton>
+
             <CTAOutlineButton
               size="large"
               onClick={() => nav('/login')}
@@ -113,7 +102,11 @@ const HomePage: React.FC = () => {
         </SectionContent>
       </Container>
 
-      <FeaturesSection component="section" py={8} sx={{ backgroundColor: theme.palette.grey[50] }}>
+      <FeaturesSection
+        component="section"
+        py={8}
+        sx={{ backgroundColor: theme.palette.grey[50] }}
+      >
         <Container maxWidth="lg">
           <SectionHeader
             title="Key Features"
@@ -154,7 +147,8 @@ const HomePage: React.FC = () => {
         component="section"
         py={8}
         sx={{
-          background: 'linear-gradient(to right, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 100%)',
+          background:
+            'linear-gradient(to right, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 100%)',
           textAlign: 'center',
         }}
       >
@@ -188,7 +182,7 @@ const HomePage: React.FC = () => {
         </Container>
       </FooterSection>
     </>
-  );
-};
+  )
+}
 
-export default HomePage;
+export default HomePage

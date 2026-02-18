@@ -1,38 +1,43 @@
-import React, { useState } from 'react';
-import {
-  Typography,
-  TextField,
-  Link,
-  Alert,
-} from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import React, { useState } from 'react'
+import { Alert, Link, TextField, Typography } from '@mui/material'
+import axios from 'axios'
+import { Link as RouterLink } from 'react-router-dom'
+import { useAuth } from '../context/useAuth'
 
 import {
-  HeroSection,
-  HeroOverlay,
   AuthContainer,
   AuthPaper,
-  FormHeader,
   FormButton,
   FormFooter,
-} from '../components/layout/Styled';
+  FormHeader,
+  HeroOverlay,
+  HeroSection,
+} from '../components/layout/Styled'
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err)) {
+    const msg = (err.response?.data as { error?: string } | undefined)?.error
+    return msg ?? fallback
+  }
+  return fallback
+}
 
 const LoginPage: React.FC = () => {
-  const { login } = useAuth();
-  const [email,    setEmail]    = useState('');
-  const [password, setPassword] = useState('');
-  const [error,    setError]    = useState<string | null>(null);
+  const { login } = useAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+    e.preventDefault()
+    setError(null)
+
     try {
-      await login(email, password);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Login failed');
+      await login(email, password)
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Login failed'))
     }
-  };
+  }
 
   return (
     <HeroSection>
@@ -40,7 +45,6 @@ const LoginPage: React.FC = () => {
 
       <AuthContainer maxWidth="xs">
         <AuthPaper elevation={6}>
-
           <FormHeader>
             <Typography variant="h5" component="h1">
               Login to WealthWise
@@ -69,25 +73,20 @@ const LoginPage: React.FC = () => {
               onChange={(e) => setPassword(e.target.value)}
             />
 
-            <FormButton
-              type="submit"
-              fullWidth
-              variant="contained"
-            >
+            <FormButton type="submit" fullWidth variant="contained">
               Login
             </FormButton>
           </form>
 
           <FormFooter>
             <Link component={RouterLink} to="/register" variant="body2">
-              Don't have an account? Register
+              Don&apos;t have an account? Register
             </Link>
           </FormFooter>
-
         </AuthPaper>
       </AuthContainer>
     </HeroSection>
-  );
-};
+  )
+}
 
-export default LoginPage;
+export default LoginPage

@@ -19,7 +19,7 @@ import {
 } from 'recharts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AnalyticsAPI from '../api/analyticsClient';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { usePositionWS } from '../hooks/usePositionWS';
 import {
   PageContainer,

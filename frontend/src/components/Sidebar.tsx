@@ -7,7 +7,7 @@ import FeedIcon from '@mui/icons-material/Feed'
 import LogoutIcon from '@mui/icons-material/Logout'
 import ShowChartIcon from '@mui/icons-material/ShowChart'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
 import {
   SidebarBrand,
   SidebarContainer,

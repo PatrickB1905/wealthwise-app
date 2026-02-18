@@ -1,40 +1,45 @@
-import React, { useState } from 'react';
-import {
-  Typography,
-  TextField,
-  Link,
-  Alert,
-} from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import React, { useState } from 'react'
+import { Alert, Link, TextField, Typography } from '@mui/material'
+import axios from 'axios'
+import { Link as RouterLink } from 'react-router-dom'
+import { useAuth } from '../context/useAuth'
 
 import {
-  HeroSection,
-  HeroOverlay,
   AuthContainer,
   AuthPaper,
-  FormHeader,
   FormButton,
   FormFooter,
-} from '../components/layout/Styled';
+  FormHeader,
+  HeroOverlay,
+  HeroSection,
+} from '../components/layout/Styled'
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err)) {
+    const msg = (err.response?.data as { error?: string } | undefined)?.error
+    return msg ?? fallback
+  }
+  return fallback
+}
 
 const RegisterPage: React.FC = () => {
-  const { register } = useAuth();
-  const [firstName, setFirstName] = useState('');
-  const [lastName,  setLastName]  = useState('');
-  const [email,     setEmail]     = useState('');
-  const [password,  setPassword]  = useState('');
-  const [error,     setError]     = useState<string | null>(null);
+  const { register } = useAuth()
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+    e.preventDefault()
+    setError(null)
+
     try {
-      await register(firstName, lastName, email, password);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Registration failed');
+      await register(firstName, lastName, email, password)
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Registration failed'))
     }
-  };
+  }
 
   return (
     <HeroSection>
@@ -86,11 +91,7 @@ const RegisterPage: React.FC = () => {
               onChange={(e) => setPassword(e.target.value)}
             />
 
-            <FormButton
-              type="submit"
-              fullWidth
-              variant="contained"
-            >
+            <FormButton type="submit" fullWidth variant="contained">
               Register
             </FormButton>
           </form>
@@ -103,7 +104,7 @@ const RegisterPage: React.FC = () => {
         </AuthPaper>
       </AuthContainer>
     </HeroSection>
-  );
-};
+  )
+}
 
-export default RegisterPage;
+export default RegisterPage
