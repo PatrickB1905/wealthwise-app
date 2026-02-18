@@ -1,8 +1,5 @@
-import { createHttpClient, envApiUrl } from './http'
+import { ENV } from '../config/env'
+import { createHttpClient } from './http'
 
-const API = createHttpClient({
-  baseURL: envApiUrl('VITE_POSITIONS_API_URL', 'http://localhost:4000/api'),
-  withAuth: true,
-})
-
+const API = createHttpClient(ENV.POSITIONS_API_URL)
 export default API

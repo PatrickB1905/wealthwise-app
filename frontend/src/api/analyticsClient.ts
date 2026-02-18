@@ -1,8 +1,5 @@
-import { createHttpClient, envApiUrl } from './http'
+import { ENV } from '../config/env'
+import { createHttpClient } from './http'
 
-const AnalyticsAPI = createHttpClient({
-  baseURL: envApiUrl('VITE_ANALYTICS_API_URL', 'http://localhost:7000/api'),
-  withAuth: true,
-})
-
+const AnalyticsAPI = createHttpClient(ENV.ANALYTICS_API_URL)
 export default AnalyticsAPI

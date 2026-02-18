@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Alert, Link, TextField, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
-import { getApiErrorMessage } from '../api/http'
+import { getErrorMessage } from '../api/http'
 
 import {
   AuthContainer,
@@ -27,7 +27,7 @@ const LoginPage: React.FC = () => {
     try {
       await login(email, password)
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, 'Login failed'))
+      setError(getErrorMessage(err, 'Login failed'))
     }
   }
 

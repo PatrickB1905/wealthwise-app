@@ -13,7 +13,7 @@ import {
 } from '@mui/material'
 import API from '../api/axios'
 import { useAuth } from '../context/useAuth'
-import { getApiErrorMessage } from '../api/http'
+import { getErrorMessage } from '../api/http'
 import {
   CenteredBox,
   PageCard,
@@ -56,7 +56,7 @@ const ProfilePage: React.FC = () => {
         setProfile(res.data)
         setNewEmail(res.data.email)
       })
-      .catch((err: unknown) => setError(getApiErrorMessage(err, 'Failed to load profile')))
+      .catch((err: unknown) => setError(getErrorMessage(err, 'Failed to load profile')))
       .finally(() => setLoading(false))
   }, [])
 
@@ -66,7 +66,7 @@ const ProfilePage: React.FC = () => {
       const res = await API.put<{ email: string }>('/auth/me/email', { email: newEmail })
       setEmailMsg({ type: 'success', text: `Email updated to ${res.data.email}` })
     } catch (err: unknown) {
-      setEmailMsg({ type: 'error', text: getApiErrorMessage(err, 'Email update failed') })
+      setEmailMsg({ type: 'error', text: getErrorMessage(err, 'Email update failed') })
     }
   }
 
@@ -81,7 +81,7 @@ const ProfilePage: React.FC = () => {
       setCurrentPwd('')
       setNewPwd('')
     } catch (err: unknown) {
-      setPwdMsg({ type: 'error', text: getApiErrorMessage(err, 'Password change failed') })
+      setPwdMsg({ type: 'error', text: getErrorMessage(err, 'Password change failed') })
     }
   }
 
@@ -91,7 +91,7 @@ const ProfilePage: React.FC = () => {
       await API.delete('/auth/me')
       logout()
     } catch (err: unknown) {
-      setDeleteError(getApiErrorMessage(err, 'Failed to delete account'))
+      setDeleteError(getErrorMessage(err, 'Failed to delete account'))
     }
   }
 

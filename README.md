@@ -47,7 +47,6 @@ docker run --rm -d \
 ```bash
 cd services/positions
 cp .env.example .env
-
 yarn install
 
 # Apply all prisma migrations
@@ -104,9 +103,31 @@ uvicorn main:app --reload --host 0.0.0.0 --port 6500
 
 ```bash
 cd frontend
+cp .env.example .env.local
 yarn install
 yarn dev
 ```
+
+---
+
+## Frontend Environment Configuration
+
+The frontend uses Vite environment variables for service communication.
+
+Create a local environment file:
+
+```bash
+cp frontend/.env.example frontend/.env.local
+```
+
+Required variables:
+
+- `VITE_POSITIONS_API_URL`
+- `VITE_MARKET_DATA_API_URL`
+- `VITE_ANALYTICS_API_URL`
+- `VITE_NEWS_API_URL`
+
+Adjust these if your services run on different hosts or ports.
 
 ---
 
@@ -119,7 +140,12 @@ Each service has its own `.env.example`. Key variables include:
 - `NEWS_API_KEY` — API key for NewsAPI
 - `MARKET_DATA_URL` — Base URL for Market Data Service
 
-Ports: `4000` (Positions), `5000` (Market Data), `7000` (Analytics), `6500` (News)
+Ports:
+
+- `4000` (Positions)
+- `5000` (Market Data)
+- `7000` (Analytics)
+- `6500` (News)
 
 ---
 

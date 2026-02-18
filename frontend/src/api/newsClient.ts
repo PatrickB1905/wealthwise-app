@@ -1,8 +1,5 @@
-import { createHttpClient, envApiUrl } from './http'
+import { ENV } from '../config/env'
+import { createHttpClient } from './http'
 
-const NewsAPI = createHttpClient({
-  baseURL: envApiUrl('VITE_NEWS_API_URL', 'http://localhost:6500/api'),
-  withAuth: true,
-})
-
+const NewsAPI = createHttpClient(ENV.NEWS_API_URL)
 export default NewsAPI
