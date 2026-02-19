@@ -2,10 +2,29 @@ import axios from 'axios'
 import type { AxiosInstance } from 'axios'
 import { STORAGE_KEYS } from '../config/env'
 
+export const AUTH_EVENTS = {
+  UNAUTHORIZED: 'auth:unauthorized',
+} as const
+
 function clearAuthStorage() {
   localStorage.removeItem(STORAGE_KEYS.TOKEN)
-  const userKey = (STORAGE_KEYS as unknown as { USER?: string }).USER ?? 'ww_user'
-  localStorage.removeItem(userKey)
+  localStorage.removeItem(STORAGE_KEYS.USER)
+}
+
+let unauthorizedEmitted = false
+let unauthorizedTimer: number | null = null
+
+function emitUnauthorizedEvent() {
+  if (unauthorizedEmitted) return
+  unauthorizedEmitted = true
+
+  window.dispatchEvent(new CustomEvent(AUTH_EVENTS.UNAUTHORIZED))
+
+  if (unauthorizedTimer) window.clearTimeout(unauthorizedTimer)
+  unauthorizedTimer = window.setTimeout(() => {
+    unauthorizedEmitted = false
+    unauthorizedTimer = null
+  }, 1000)
 }
 
 export function createHttpClient(baseURL: string): AxiosInstance {
@@ -28,10 +47,7 @@ export function createHttpClient(baseURL: string): AxiosInstance {
     (err) => {
       if (axios.isAxiosError(err) && err.response?.status === 401) {
         clearAuthStorage()
-
-        if (window.location.pathname !== '/login') {
-          window.location.replace('/login')
-        }
+        emitUnauthorizedEvent()
       }
       return Promise.reject(err)
     }
