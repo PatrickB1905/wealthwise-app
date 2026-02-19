@@ -8,6 +8,7 @@ export type User = {
 
 export type AuthContextValue = {
   user: User | null
+  isBootstrapping: boolean
   login: (email: string, password: string) => Promise<void>
   register: (
     firstName: string,

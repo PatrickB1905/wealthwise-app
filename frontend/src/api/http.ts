@@ -2,6 +2,12 @@ import axios from 'axios'
 import type { AxiosInstance } from 'axios'
 import { STORAGE_KEYS } from '../config/env'
 
+function clearAuthStorage() {
+  localStorage.removeItem(STORAGE_KEYS.TOKEN)
+  const userKey = (STORAGE_KEYS as unknown as { USER?: string }).USER ?? 'ww_user'
+  localStorage.removeItem(userKey)
+}
+
 export function createHttpClient(baseURL: string): AxiosInstance {
   const client = axios.create({
     baseURL,
@@ -16,6 +22,20 @@ export function createHttpClient(baseURL: string): AxiosInstance {
     }
     return config
   })
+
+  client.interceptors.response.use(
+    (res) => res,
+    (err) => {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        clearAuthStorage()
+
+        if (window.location.pathname !== '/login') {
+          window.location.replace('/login')
+        }
+      }
+      return Promise.reject(err)
+    }
+  )
 
   return client
 }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import API from '../api/axios'
+import { STORAGE_KEYS } from '../config/env'
 import { AuthContext, type AuthContextValue, type User } from './authContext'
 
 type AuthProviderProps = {
@@ -12,16 +13,41 @@ type LoginResponse = {
   user: User
 }
 
+type MeResponse = User
+
+function clearAuthStorage() {
+  localStorage.removeItem(STORAGE_KEYS.TOKEN)
+  const userKey = (STORAGE_KEYS as unknown as { USER?: string }).USER ?? 'ww_user'
+  localStorage.removeItem(userKey)
+}
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
+  const [isBootstrapping, setIsBootstrapping] = useState(true)
   const navigate = useNavigate()
 
+  // Bootstraps session from API if a token exists
   useEffect(() => {
-    const token = localStorage.getItem('ww_token')
-    const storedUser = localStorage.getItem('ww_user')
-    if (token && storedUser) {
-      setUser(JSON.parse(storedUser) as User)
+    const token = localStorage.getItem(STORAGE_KEYS.TOKEN)
+
+    if (!token) {
+      setIsBootstrapping(false)
+      return
     }
+
+    API.get<MeResponse>('/auth/me')
+      .then((res) => {
+        setUser(res.data)
+        const userKey = (STORAGE_KEYS as unknown as { USER?: string }).USER ?? 'ww_user'
+        localStorage.setItem(userKey, JSON.stringify(res.data))
+      })
+      .catch(() => {
+        clearAuthStorage()
+        setUser(null)
+      })
+      .finally(() => {
+        setIsBootstrapping(false)
+      })
   }, [])
 
   const login: AuthContextValue['login'] = useCallback(
@@ -29,8 +55,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const res = await API.post<LoginResponse>('/auth/login', { email, password })
       const { token, user } = res.data
 
-      localStorage.setItem('ww_token', token)
-      localStorage.setItem('ww_user', JSON.stringify(user))
+      localStorage.setItem(STORAGE_KEYS.TOKEN, token)
+      const userKey = (STORAGE_KEYS as unknown as { USER?: string }).USER ?? 'ww_user'
+      localStorage.setItem(userKey, JSON.stringify(user))
 
       setUser(user)
       navigate('/app/positions', { replace: true })
@@ -48,8 +75,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       })
       const { token, user } = res.data
 
-      localStorage.setItem('ww_token', token)
-      localStorage.setItem('ww_user', JSON.stringify(user))
+      localStorage.setItem(STORAGE_KEYS.TOKEN, token)
+      const userKey = (STORAGE_KEYS as unknown as { USER?: string }).USER ?? 'ww_user'
+      localStorage.setItem(userKey, JSON.stringify(user))
 
       setUser(user)
       navigate('/app/positions', { replace: true })
@@ -58,16 +86,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   )
 
   const logout: AuthContextValue['logout'] = useCallback(() => {
-    localStorage.removeItem('ww_token')
-    localStorage.removeItem('ww_user')
-
+    clearAuthStorage()
     setUser(null)
     navigate('/login', { replace: true })
   }, [navigate])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, login, register, logout }),
-    [user, login, register, logout]
+    () => ({ user, isBootstrapping, login, register, logout }),
+    [user, isBootstrapping, login, register, logout]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
