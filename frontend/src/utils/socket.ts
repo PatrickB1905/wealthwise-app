@@ -1,19 +1,57 @@
-import { io, type Socket } from 'socket.io-client';
+import { io, type Socket } from 'socket.io-client'
+import { ENV, STORAGE_KEYS } from '../config/env'
 
-const WS_URL = 'http://localhost:4000';
+let socket: Socket | null = null
 
-let socket: Socket | null = null;
+type StoredUser = { id: number } | null
+
+function safeParseUser(json: string | null): StoredUser {
+  if (!json) return null
+  try {
+    return JSON.parse(json) as { id: number }
+  } catch {
+    return null
+  }
+}
+
+function resolveSocketUrl(): string {
+  const wsUrl = (import.meta.env.VITE_POSITIONS_WS_URL as string | undefined)?.trim()
+  if (wsUrl) return wsUrl
+
+  const apiUrl = ENV.POSITIONS_API_URL.trim()
+  try {
+    const u = new URL(apiUrl)
+    u.pathname = ''
+    u.search = ''
+    u.hash = ''
+    return u.toString().replace(/\/$/, '')
+  } catch {
+    return apiUrl.replace(/\/+$/, '')
+  }
+}
 
 export function getSocket(): Socket {
-  if (!socket) {
-    const token    = localStorage.getItem('ww_token');
-    const userJson = localStorage.getItem('ww_user');
-    const userId   = userJson ? JSON.parse(userJson).id : undefined;
+  if (socket) return socket
 
-    socket = io(WS_URL, {
-      auth: { token, userId },
-    });
-    if (userId) socket.emit('join', userId);
+  const token = localStorage.getItem(STORAGE_KEYS.TOKEN)
+  const user = safeParseUser(localStorage.getItem(STORAGE_KEYS.USER))
+  const userId = user?.id
+
+  socket = io(resolveSocketUrl(), {
+    transports: ['websocket'],
+    auth: { token, userId },
+  })
+
+  socket.on('connect', () => {
+    if (userId) socket?.emit('join', userId)
+  })
+
+  return socket
+}
+
+export function resetSocket(): void {
+  if (socket) {
+    socket.disconnect()
+    socket = null
   }
-  return socket;
 }
