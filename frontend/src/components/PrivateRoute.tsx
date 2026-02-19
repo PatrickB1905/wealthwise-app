@@ -1,8 +1,8 @@
 import React from 'react'
 import { Navigate } from 'react-router-dom'
-import { CircularProgress } from '@mui/material'
-import Box from '@mui/material/Box'
+import CircularProgress from '@mui/material/CircularProgress'
 import { useAuth } from '../context/useAuth'
+import { FullPageCentered } from './layout/Styled'
 
 interface Props {
   children: JSX.Element
@@ -13,9 +13,9 @@ const PrivateRoute: React.FC<Props> = ({ children }) => {
 
   if (isBootstrapping) {
     return (
-      <Box sx={{ minHeight: '60vh', display: 'grid', placeItems: 'center' }}>
+      <FullPageCentered>
         <CircularProgress />
-      </Box>
+      </FullPageCentered>
     )
   }
 

@@ -13,6 +13,7 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/app" element={<Navigate to="/app/positions" replace />} />
 
       {/* Protected routes */}
       <Route
@@ -23,9 +24,6 @@ function App() {
           </PrivateRoute>
         }
       />
-
-      {/* Convenience redirect */}
-      <Route path="/app" element={<Navigate to="/app/positions" replace />} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+
 import API from '../api/axios'
+import { AUTH_EVENTS } from '../api/http'
 import { STORAGE_KEYS } from '../config/env'
+import { resetSocket } from '../utils/socket'
+
 import { AuthContext, type AuthContextValue, type User } from './authContext'
 
 type AuthProviderProps = {
@@ -17,8 +21,7 @@ type MeResponse = User
 
 function clearAuthStorage() {
   localStorage.removeItem(STORAGE_KEYS.TOKEN)
-  const userKey = (STORAGE_KEYS as unknown as { USER?: string }).USER ?? 'ww_user'
-  localStorage.removeItem(userKey)
+  localStorage.removeItem(STORAGE_KEYS.USER)
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
@@ -26,7 +29,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isBootstrapping, setIsBootstrapping] = useState(true)
   const navigate = useNavigate()
 
-  // Bootstraps session from API if a token exists
   useEffect(() => {
     const token = localStorage.getItem(STORAGE_KEYS.TOKEN)
 
@@ -38,11 +40,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     API.get<MeResponse>('/auth/me')
       .then((res) => {
         setUser(res.data)
-        const userKey = (STORAGE_KEYS as unknown as { USER?: string }).USER ?? 'ww_user'
-        localStorage.setItem(userKey, JSON.stringify(res.data))
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(res.data))
       })
       .catch(() => {
         clearAuthStorage()
+        resetSocket()
         setUser(null)
       })
       .finally(() => {
@@ -50,15 +52,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       })
   }, [])
 
+  useEffect(() => {
+    const onUnauthorized = () => {
+      clearAuthStorage()
+      resetSocket()
+      setUser(null)
+
+      if (window.location.pathname !== '/login') {
+        navigate('/login', { replace: true })
+      }
+    }
+
+    window.addEventListener(AUTH_EVENTS.UNAUTHORIZED, onUnauthorized)
+    return () => window.removeEventListener(AUTH_EVENTS.UNAUTHORIZED, onUnauthorized)
+  }, [navigate])
+
   const login: AuthContextValue['login'] = useCallback(
     async (email, password) => {
       const res = await API.post<LoginResponse>('/auth/login', { email, password })
       const { token, user } = res.data
 
       localStorage.setItem(STORAGE_KEYS.TOKEN, token)
-      const userKey = (STORAGE_KEYS as unknown as { USER?: string }).USER ?? 'ww_user'
-      localStorage.setItem(userKey, JSON.stringify(user))
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user))
 
+      resetSocket()
       setUser(user)
       navigate('/app/positions', { replace: true })
     },
@@ -76,9 +93,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { token, user } = res.data
 
       localStorage.setItem(STORAGE_KEYS.TOKEN, token)
-      const userKey = (STORAGE_KEYS as unknown as { USER?: string }).USER ?? 'ww_user'
-      localStorage.setItem(userKey, JSON.stringify(user))
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user))
 
+      resetSocket()
       setUser(user)
       navigate('/app/positions', { replace: true })
     },
@@ -87,6 +104,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout: AuthContextValue['logout'] = useCallback(() => {
     clearAuthStorage()
+    resetSocket()
     setUser(null)
     navigate('/login', { replace: true })
   }, [navigate])
