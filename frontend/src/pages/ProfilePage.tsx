@@ -1,25 +1,26 @@
 import React, { useEffect, useState } from 'react'
-import {
-  Alert,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  TextField,
-  Typography,
-} from '@mui/material'
+import Alert from '@mui/material/Alert'
+import Button from '@mui/material/Button'
+import CircularProgress from '@mui/material/CircularProgress'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogTitle from '@mui/material/DialogTitle'
+import Divider from '@mui/material/Divider'
+import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
+
 import API from '../api/axios'
-import { useAuth } from '../context/useAuth'
 import { getErrorMessage } from '../api/http'
+import { useAuth } from '../context/useAuth'
 import {
   CenteredBox,
+  FormActions,
   PageCard,
   PageContainer,
   SectionContent,
   SectionHeader,
+  SpacedAlert,
   StyledContainer,
 } from '../components/layout/Styled'
 
@@ -135,21 +136,23 @@ const ProfilePage: React.FC = () => {
             <Typography variant="subtitle1" gutterBottom>
               Update Email
             </Typography>
-            {emailMsg && (
-              <Alert severity={emailMsg.type} sx={{ mb: 2 }}>
-                {emailMsg.text}
-              </Alert>
-            )}
+
+            {emailMsg ? <SpacedAlert severity={emailMsg.type}>{emailMsg.text}</SpacedAlert> : null}
+
             <TextField
               fullWidth
               label="Email"
               margin="normal"
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
+              autoComplete="email"
             />
-            <Button variant="contained" onClick={handleEmailUpdate} sx={{ mt: 1 }}>
-              Update Email
-            </Button>
+
+            <FormActions>
+              <Button variant="contained" onClick={handleEmailUpdate}>
+                Update Email
+              </Button>
+            </FormActions>
           </SectionContent>
 
           <Divider />
@@ -158,11 +161,9 @@ const ProfilePage: React.FC = () => {
             <Typography variant="subtitle1" gutterBottom>
               Change Password
             </Typography>
-            {pwdMsg && (
-              <Alert severity={pwdMsg.type} sx={{ mb: 2 }}>
-                {pwdMsg.text}
-              </Alert>
-            )}
+
+            {pwdMsg ? <SpacedAlert severity={pwdMsg.type}>{pwdMsg.text}</SpacedAlert> : null}
+
             <TextField
               fullWidth
               type="password"
@@ -170,6 +171,7 @@ const ProfilePage: React.FC = () => {
               margin="normal"
               value={currentPwd}
               onChange={(e) => setCurrentPwd(e.target.value)}
+              autoComplete="current-password"
             />
             <TextField
               fullWidth
@@ -178,10 +180,14 @@ const ProfilePage: React.FC = () => {
               margin="normal"
               value={newPwd}
               onChange={(e) => setNewPwd(e.target.value)}
+              autoComplete="new-password"
             />
-            <Button variant="contained" sx={{ mt: 1 }} onClick={handlePasswordChange}>
-              Change Password
-            </Button>
+
+            <FormActions>
+              <Button variant="contained" onClick={handlePasswordChange}>
+                Change Password
+              </Button>
+            </FormActions>
           </SectionContent>
 
           <Divider />
@@ -200,11 +206,8 @@ const ProfilePage: React.FC = () => {
           <Typography>
             Are you sure you want to permanently delete your account? This cannot be undone.
           </Typography>
-          {deleteError && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {deleteError}
-            </Alert>
-          )}
+
+          {deleteError ? <SpacedAlert severity="error">{deleteError}</SpacedAlert> : null}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteOpen(false)}>Cancel</Button>

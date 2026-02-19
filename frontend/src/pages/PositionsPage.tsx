@@ -1,34 +1,38 @@
 import React, { useMemo, useState } from 'react'
-import {
-  Avatar,
-  Box,
-  Button,
-  ButtonGroup,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableFooter,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from '@mui/material'
+import Avatar from '@mui/material/Avatar'
+import Button from '@mui/material/Button'
+import ButtonGroup from '@mui/material/ButtonGroup'
+import CircularProgress from '@mui/material/CircularProgress'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogTitle from '@mui/material/DialogTitle'
+import Paper from '@mui/material/Paper'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableFooter from '@mui/material/TableFooter'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs, { type Dayjs } from 'dayjs'
+
 import API from '../api/axios'
 import { usePositionWS } from '../hooks/usePositionWS'
 import { useQuotes } from '../hooks/useQuotes'
 import {
   CenteredBox,
+  PositionsActions,
+  PositionsTabGroupWrap,
+  ProfitCell,
+  TickerCell,
+  TickerLogo,
+  TotalsRow,
   PageCard,
   PageContainer,
   SectionContent,
@@ -52,9 +56,13 @@ type Quote = {
   logoUrl: string
 }
 
-const POSITIVE_COLOR = '#10b42c'
-const NEGATIVE_COLOR = '#f83c44'
-const ZERO_COLOR = '#000000'
+type Tone = 'positive' | 'negative' | 'neutral'
+
+function toneFromNumber(val: number): Tone {
+  if (val > 0) return 'positive'
+  if (val < 0) return 'negative'
+  return 'neutral'
+}
 
 const PositionsPage: React.FC = () => {
   usePositionWS()
@@ -87,7 +95,7 @@ const PositionsPage: React.FC = () => {
     refetchOnWindowFocus: false,
   })
 
-  const tickers = positions.map((p) => p.ticker)
+  const tickers = useMemo(() => positions.map((p) => p.ticker), [positions])
   const { data: quotesArray = [], isLoading: quotesLoading } = useQuotes(tickers)
 
   const quotesMap = useMemo<Record<string, Quote>>(() => {
@@ -110,23 +118,21 @@ const PositionsPage: React.FC = () => {
     },
   })
 
-  const closePosition = useMutation<
-    Position,
-    Error,
-    { id: number; sellPrice: number; sellDate?: string }
-  >({
-    mutationFn: (vars) =>
-      API.put(`/positions/${vars.id}/close`, {
-        sellPrice: vars.sellPrice,
-        sellDate: vars.sellDate,
-      }).then((r) => r.data as Position),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['positions', 'open'] })
-      qc.invalidateQueries({ queryKey: ['positions', 'closed'] })
-      setCloseOpen(false)
-      setSelected(null)
-    },
-  })
+  const closePosition = useMutation<Position, Error, { id: number; sellPrice: number; sellDate?: string }>(
+    {
+      mutationFn: (vars) =>
+        API.put(`/positions/${vars.id}/close`, {
+          sellPrice: vars.sellPrice,
+          sellDate: vars.sellDate,
+        }).then((r) => r.data as Position),
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ['positions', 'open'] })
+        qc.invalidateQueries({ queryKey: ['positions', 'closed'] })
+        setCloseOpen(false)
+        setSelected(null)
+      },
+    }
+  )
 
   const editPosition = useMutation<
     Position,
@@ -140,8 +146,7 @@ const PositionsPage: React.FC = () => {
       sellDate?: string
     }
   >({
-    mutationFn: (vars) =>
-      API.put(`/positions/${vars.id}`, vars).then((r) => r.data as Position),
+    mutationFn: (vars) => API.put(`/positions/${vars.id}`, vars).then((r) => r.data as Position),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['positions', tab] })
       setEditOpen(false)
@@ -225,6 +230,9 @@ const PositionsPage: React.FC = () => {
     }
   }, [positions, quotesMap, tab])
 
+  const totalsProfitTone = toneFromNumber(totalProfit)
+  const totalsPctTone = toneFromNumber(totalProfitPct)
+
   return (
     <PageContainer>
       <StyledContainer>
@@ -232,7 +240,7 @@ const PositionsPage: React.FC = () => {
           <SectionHeader
             title={tab === 'open' ? 'Open Positions' : 'Closed Positions'}
             action={
-              tab === 'open' && (
+              tab === 'open' ? (
                 <Button
                   variant="contained"
                   onClick={() => {
@@ -245,25 +253,24 @@ const PositionsPage: React.FC = () => {
                 >
                   Add Position
                 </Button>
-              )
+              ) : null
             }
           />
 
           <SectionContent>
-            <ButtonGroup sx={{ mb: { xs: 1, sm: 2 } }}>
-              <Button
-                variant={tab === 'open' ? 'contained' : 'outlined'}
-                onClick={() => setTab('open')}
-              >
-                Open
-              </Button>
-              <Button
-                variant={tab === 'closed' ? 'contained' : 'outlined'}
-                onClick={() => setTab('closed')}
-              >
-                Closed
-              </Button>
-            </ButtonGroup>
+            <PositionsTabGroupWrap>
+              <ButtonGroup>
+                <Button variant={tab === 'open' ? 'contained' : 'outlined'} onClick={() => setTab('open')}>
+                  Open
+                </Button>
+                <Button
+                  variant={tab === 'closed' ? 'contained' : 'outlined'}
+                  onClick={() => setTab('closed')}
+                >
+                  Closed
+                </Button>
+              </ButtonGroup>
+            </PositionsTabGroupWrap>
 
             {posLoading || quotesLoading ? (
               <CenteredBox>
@@ -273,9 +280,7 @@ const PositionsPage: React.FC = () => {
               <Typography color="error">{posError.message}</Typography>
             ) : positions.length === 0 ? (
               <CenteredBox>
-                <Typography color="textSecondary">
-                  You currently have no {tab} positions.
-                </Typography>
+                <Typography color="text.secondary">You currently have no {tab} positions.</Typography>
               </CenteredBox>
             ) : (
               <TableContainer component={Paper}>
@@ -285,9 +290,7 @@ const PositionsPage: React.FC = () => {
                       <TableCell>Ticker</TableCell>
                       <TableCell align="right">Buy Price</TableCell>
                       <TableCell align="right">Quantity</TableCell>
-                      <TableCell align="right">
-                        {tab === 'open' ? 'Current Price' : 'Sell Price'}
-                      </TableCell>
+                      <TableCell align="right">{tab === 'open' ? 'Current Price' : 'Sell Price'}</TableCell>
                       <TableCell align="right">Amount Invested ($)</TableCell>
                       <TableCell align="right">Total P/L (%)</TableCell>
                       <TableCell align="right">Total P/L ($)</TableCell>
@@ -305,22 +308,15 @@ const PositionsPage: React.FC = () => {
                       const profit = price * pos.quantity - cost
                       const pct = cost ? (profit / cost) * 100 : 0
 
-                      const colorPct =
-                        pct > 0 ? POSITIVE_COLOR : pct < 0 ? NEGATIVE_COLOR : ZERO_COLOR
-                      const colorPl =
-                        profit > 0 ? POSITIVE_COLOR : profit < 0 ? NEGATIVE_COLOR : ZERO_COLOR
-
                       return (
                         <TableRow key={pos.id}>
                           <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <Avatar
-                                src={quotesMap[pos.ticker]?.logoUrl}
-                                alt={pos.ticker}
-                                sx={{ width: 24, height: 24, mr: 1 }}
-                              />
+                            <TickerCell>
+                              <TickerLogo>
+                                <Avatar src={quotesMap[pos.ticker]?.logoUrl} alt={pos.ticker} />
+                              </TickerLogo>
                               {pos.ticker}
-                            </Box>
+                            </TickerCell>
                           </TableCell>
 
                           <TableCell align="right">${pos.buyPrice.toFixed(2)}</TableCell>
@@ -328,57 +324,58 @@ const PositionsPage: React.FC = () => {
                           <TableCell align="right">${price.toFixed(2)}</TableCell>
                           <TableCell align="right">${cost.toFixed(2)}</TableCell>
 
-                          <TableCell align="right" sx={{ color: colorPct }}>
+                          <ProfitCell align="right" tone={toneFromNumber(pct)}>
                             {pct.toFixed(2)}%
-                          </TableCell>
+                          </ProfitCell>
 
-                          <TableCell align="right" sx={{ color: colorPl }}>
+                          <ProfitCell align="right" tone={toneFromNumber(profit)}>
                             ${profit.toFixed(2)}
-                          </TableCell>
+                          </ProfitCell>
 
                           <TableCell align="center">
-                            {tab === 'open' && (
+                            <PositionsActions>
+                              {tab === 'open' ? (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => {
+                                    setSelected(pos)
+                                    setNewSellPrice('')
+                                    setNewSellDate(dayjs())
+                                    setCloseOpen(true)
+                                  }}
+                                >
+                                  Close
+                                </Button>
+                              ) : null}
+
                               <Button
                                 size="small"
                                 variant="outlined"
                                 onClick={() => {
                                   setSelected(pos)
-                                  setNewSellPrice('')
-                                  setNewSellDate(dayjs())
-                                  setCloseOpen(true)
+                                  setNewQuantity(String(pos.quantity))
+                                  setNewBuyPrice(String(pos.buyPrice))
+                                  setNewBuyDate(dayjs(pos.buyDate))
+                                  if (pos.sellDate) setNewSellDate(dayjs(pos.sellDate))
+                                  setEditOpen(true)
                                 }}
                               >
-                                Close
+                                Edit
                               </Button>
-                            )}
 
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              sx={{ mx: 1 }}
-                              onClick={() => {
-                                setSelected(pos)
-                                setNewQuantity(String(pos.quantity))
-                                setNewBuyPrice(String(pos.buyPrice))
-                                setNewBuyDate(dayjs(pos.buyDate))
-                                if (pos.sellDate) setNewSellDate(dayjs(pos.sellDate))
-                                setEditOpen(true)
-                              }}
-                            >
-                              Edit
-                            </Button>
-
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              color="error"
-                              onClick={() => {
-                                setSelected(pos)
-                                setDeleteOpen(true)
-                              }}
-                            >
-                              Delete
-                            </Button>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="error"
+                                onClick={() => {
+                                  setSelected(pos)
+                                  setDeleteOpen(true)
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </PositionsActions>
                           </TableCell>
                         </TableRow>
                       )
@@ -386,48 +383,27 @@ const PositionsPage: React.FC = () => {
                   </TableBody>
 
                   <TableFooter>
-                    <TableRow sx={{ borderTop: (t) => `2px solid ${t.palette.divider}` }}>
+                    <TotalsRow>
                       <TableCell>
                         <strong>Totals</strong>
                       </TableCell>
                       <TableCell />
                       <TableCell />
                       <TableCell />
-
                       <TableCell align="right">
                         <strong>${totalInvested.toFixed(2)}</strong>
                       </TableCell>
 
-                      <TableCell
-                        align="right"
-                        sx={{
-                          color:
-                            totalProfitPct > 0
-                              ? POSITIVE_COLOR
-                              : totalProfitPct < 0
-                                ? NEGATIVE_COLOR
-                                : ZERO_COLOR,
-                        }}
-                      >
+                      <ProfitCell align="right" tone={totalsPctTone}>
                         <strong>{totalProfitPct.toFixed(2)}%</strong>
-                      </TableCell>
+                      </ProfitCell>
 
-                      <TableCell
-                        align="right"
-                        sx={{
-                          color:
-                            totalProfit > 0
-                              ? POSITIVE_COLOR
-                              : totalProfit < 0
-                                ? NEGATIVE_COLOR
-                                : ZERO_COLOR,
-                        }}
-                      >
+                      <ProfitCell align="right" tone={totalsProfitTone}>
                         <strong>${totalProfit.toFixed(2)}</strong>
-                      </TableCell>
+                      </ProfitCell>
 
                       <TableCell />
-                    </TableRow>
+                    </TotalsRow>
                   </TableFooter>
                 </Table>
               </TableContainer>
@@ -444,7 +420,7 @@ const PositionsPage: React.FC = () => {
             margin="dense"
             label="Ticker"
             value={newTicker}
-            error={!!tickerError}
+            error={Boolean(tickerError)}
             helperText={tickerError}
             onChange={(e) => setNewTicker(e.target.value)}
           />
@@ -471,9 +447,7 @@ const PositionsPage: React.FC = () => {
               value={newBuyDate}
               onChange={(d) => setNewBuyDate(d)}
               disableFuture
-              slotProps={{
-                textField: { fullWidth: true, margin: 'dense' },
-              }}
+              slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
             />
           </LocalizationProvider>
         </DialogContent>
@@ -504,20 +478,14 @@ const PositionsPage: React.FC = () => {
               value={newSellDate}
               onChange={(d) => setNewSellDate(d)}
               disableFuture
-              slotProps={{
-                textField: { fullWidth: true, margin: 'dense' },
-              }}
+              slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
             />
           </LocalizationProvider>
         </DialogContent>
 
         <DialogActions>
           <Button onClick={() => setCloseOpen(false)}>Cancel</Button>
-          <Button
-            onClick={onCloseSubmit}
-            disabled={closePosition.isPending}
-            variant="contained"
-          >
+          <Button onClick={onCloseSubmit} disabled={closePosition.isPending} variant="contained">
             {closePosition.isPending ? 'Closing…' : 'Close'}
           </Button>
         </DialogActions>
@@ -549,13 +517,11 @@ const PositionsPage: React.FC = () => {
               value={newBuyDate}
               onChange={(d) => setNewBuyDate(d)}
               disableFuture
-              slotProps={{
-                textField: { fullWidth: true, margin: 'dense' },
-              }}
+              slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
             />
           </LocalizationProvider>
 
-          {tab === 'closed' && (
+          {tab === 'closed' ? (
             <>
               <TextField
                 fullWidth
@@ -571,22 +537,16 @@ const PositionsPage: React.FC = () => {
                   value={newSellDate}
                   onChange={(d) => setNewSellDate(d)}
                   disableFuture
-                  slotProps={{
-                    textField: { fullWidth: true, margin: 'dense' },
-                  }}
+                  slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
                 />
               </LocalizationProvider>
             </>
-          )}
+          ) : null}
         </DialogContent>
 
         <DialogActions>
           <Button onClick={() => setEditOpen(false)}>Cancel</Button>
-          <Button
-            onClick={onEditSubmit}
-            disabled={editPosition.isPending}
-            variant="contained"
-          >
+          <Button onClick={onEditSubmit} disabled={editPosition.isPending} variant="contained">
             {editPosition.isPending ? 'Saving…' : 'Save'}
           </Button>
         </DialogActions>

@@ -1,19 +1,30 @@
 import React from 'react'
-import { Box, Container, Grid, Typography, useTheme } from '@mui/material'
+import Container from '@mui/material/Container'
+import Grid from '@mui/material/Grid'
+import Typography from '@mui/material/Typography'
 import { useNavigate } from 'react-router-dom'
 
 import {
+  CalloutActions,
+  CalloutSection,
+  CalloutText,
+  CalloutTitle,
+  CalloutWrap,
   CTAButton,
   CTAOutlineButton,
-  FeatureCard,
+  FeatureCardLayout,
   FeatureIcon,
   FeaturesSection,
   FooterSection,
+  HeroActions,
   HeroContent,
   HeroOverlay,
   HomeHero,
+  PrimaryHeroButton,
+  SectionBodyText,
   SectionContent,
   SectionHeader,
+  SectionWrap,
 } from '../components/layout/Styled'
 
 const features = [
@@ -39,74 +50,48 @@ const features = [
 
 const HomePage: React.FC = () => {
   const nav = useNavigate()
-  const theme = useTheme()
 
   return (
     <>
-      <HomeHero sx={{ backgroundImage: 'url(/hero.png)' }}>
+      <HomeHero>
         <HeroOverlay />
-        <HeroContent maxWidth="md" sx={{ textAlign: 'center' }}>
+        <HeroContent maxWidth="md">
           <Typography variant="h2" component="h1" fontWeight="bold" gutterBottom>
             WealthWise
           </Typography>
           <Typography variant="h5" gutterBottom>
-            The only platform you need to track, analyze, and stay informed on your
-            entire portfolio—stocks &amp; crypto alike!
+            The only platform you need to track, analyze, and stay informed on your entire
+            portfolio—stocks &amp; crypto alike!
           </Typography>
 
-          <Box mt={4} display="flex" justifyContent="center" gap={2} flexWrap="wrap">
-            <CTAButton
-              size="large"
-              onClick={() => nav('/register')}
-              sx={{
-                backgroundColor: theme.palette.common.white,
-                color: theme.palette.primary.main,
-                '&:hover': { backgroundColor: theme.palette.grey[100] },
-              }}
-            >
+          <HeroActions>
+            <PrimaryHeroButton size="large" onClick={() => nav('/register')}>
               Get Started
-            </CTAButton>
+            </PrimaryHeroButton>
 
-            <CTAOutlineButton
-              size="large"
-              onClick={() => nav('/login')}
-              sx={{
-                borderColor: theme.palette.common.white,
-                color: theme.palette.common.white,
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' },
-              }}
-            >
+            <CTAOutlineButton size="large" onClick={() => nav('/login')}>
               Login
             </CTAOutlineButton>
-          </Box>
+          </HeroActions>
         </HeroContent>
       </HomeHero>
 
-      <Container maxWidth="lg" sx={{ py: 8 }}>
+      <SectionWrap maxWidth="lg">
         <SectionHeader
           title="What Is WealthWise?"
           titleTypographyProps={{ variant: 'h4', align: 'center' }}
         />
         <SectionContent>
-          <Typography
-            variant="body1"
-            color="text.secondary"
-            align="center"
-            sx={{ maxWidth: 700, mx: 'auto', mt: 2 }}
-          >
-            WealthWise is your answer to bringing all your investments from multiple
-            platforms into one place. Real-time pricing, advanced profit/loss charts,
-            and a live newsfeed tailored to the tickers you own—no more juggling multiple
-            apps. Everything you need to make informed decisions is right here.
-          </Typography>
+          <SectionBodyText variant="body1" color="text.secondary" align="center">
+            WealthWise is your answer to bringing all your investments from multiple platforms into
+            one place. Real-time pricing, advanced profit/loss charts, and a live newsfeed tailored
+            to the tickers you own—no more juggling multiple apps. Everything you need to make
+            informed decisions is right here.
+          </SectionBodyText>
         </SectionContent>
-      </Container>
+      </SectionWrap>
 
-      <FeaturesSection
-        component="section"
-        py={8}
-        sx={{ backgroundColor: theme.palette.grey[50] }}
-      >
+      <FeaturesSection component="section">
         <Container maxWidth="lg">
           <SectionHeader
             title="Key Features"
@@ -116,26 +101,15 @@ const HomePage: React.FC = () => {
             <Grid container spacing={4} justifyContent="center">
               {features.map((f) => (
                 <Grid item xs={12} sm={6} md={4} key={f.title}>
-                  <FeatureCard
-                    elevation={3}
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      textAlign: 'center',
-                      px: 2,
-                      py: 4,
-                      height: '100%',
-                    }}
-                  >
-                    <FeatureIcon src={f.icon} alt={f.title} sx={{ mb: 2 }} />
+                  <FeatureCardLayout elevation={3}>
+                    <FeatureIcon src={f.icon} alt={f.title} />
                     <Typography variant="h6" fontWeight="bold" gutterBottom>
                       {f.title}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       {f.description}
                     </Typography>
-                  </FeatureCard>
+                  </FeatureCardLayout>
                 </Grid>
               ))}
             </Grid>
@@ -143,36 +117,23 @@ const HomePage: React.FC = () => {
         </Container>
       </FeaturesSection>
 
-      <Box
-        component="section"
-        py={8}
-        sx={{
-          background:
-            'linear-gradient(to right, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 100%)',
-          textAlign: 'center',
-        }}
-      >
-        <Container maxWidth="lg" sx={{ position: 'relative', color: 'common.white' }}>
-          <Typography variant="h4" fontWeight="bold" gutterBottom>
+      <CalloutSection component="section">
+        <CalloutWrap maxWidth="lg">
+          <CalloutTitle variant="h4" fontWeight="bold" gutterBottom>
             Ready to take your portfolio to the next level?
-          </Typography>
-          <Typography variant="body1" mb={4}>
-            Join thousands of investors who trust WealthWise for faster insights and
-            smarter decisions today!
-          </Typography>
-          <CTAButton
-            size="large"
-            onClick={() => nav('/register')}
-            sx={{
-              backgroundColor: theme.palette.common.white,
-              color: theme.palette.primary.main,
-              '&:hover': { backgroundColor: theme.palette.grey[100] },
-            }}
-          >
-            Create Account
-          </CTAButton>
-        </Container>
-      </Box>
+          </CalloutTitle>
+          <CalloutText variant="body1">
+            Join thousands of investors who trust WealthWise for faster insights and smarter
+            decisions today!
+          </CalloutText>
+
+          <CalloutActions>
+            <CTAButton size="large" onClick={() => nav('/register')}>
+              Create Account
+            </CTAButton>
+          </CalloutActions>
+        </CalloutWrap>
+      </CalloutSection>
 
       <FooterSection>
         <Container maxWidth="lg">

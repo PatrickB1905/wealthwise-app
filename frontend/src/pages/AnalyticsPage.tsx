@@ -1,120 +1,112 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo, useState } from 'react'
+import Alert from '@mui/material/Alert'
+import CircularProgress from '@mui/material/CircularProgress'
+import Grid from '@mui/material/Grid'
+import ToggleButton from '@mui/material/ToggleButton'
+import { useTheme } from '@mui/material/styles'
 import {
-  Box,
-  Typography,
-  CircularProgress,
-  Alert,
-  useTheme,
-  ToggleButton,
-  ToggleButtonGroup,
-} from '@mui/material';
-import {
-  LineChart,
+  CartesianGrid,
   Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-} from 'recharts';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import AnalyticsAPI from '../api/analyticsClient';
-import { useAuth } from '../context/useAuth';
-import { usePositionWS } from '../hooks/usePositionWS';
+} from 'recharts'
+import { useQuery } from '@tanstack/react-query'
+
+import AnalyticsAPI from '../api/analyticsClient'
+import { useAuth } from '../context/useAuth'
+import { usePositionWS } from '../hooks/usePositionWS'
 import {
-  PageContainer,
-  StyledContainer,
-  PageCard,
-  SectionHeader,
-  SectionContent,
+  AnalyticsChartBox,
+  AnalyticsRangeToggleGroup,
   CenteredBox,
-} from '../components/layout/Styled';
+  MetricCard,
+  MetricValue,
+  PageCard,
+  PageContainer,
+  SectionContent,
+  SectionHeader,
+  StyledContainer,
+} from '../components/layout/Styled'
 
-interface Summary {
-  invested: number;
-  totalPL: number;
-  totalPLPercent: number;
-  openCount: number;
-  closedCount: number;
+type Summary = {
+  invested: number
+  totalPL: number
+  totalPLPercent: number
+  openCount: number
+  closedCount: number
 }
 
-interface HistoryItem {
-  date: string;
-  value: number;
+type HistoryItem = {
+  date: string
+  value: number
 }
 
-const POS_COLOR = '#10b42c';
-const NEG_COLOR = '#f83c44';
-const ZERO_COLOR = '#000000';
+type Tone = 'positive' | 'negative' | 'neutral'
+
+function toneFromNumber(val: number): Tone {
+  if (val > 0) return 'positive'
+  if (val < 0) return 'negative'
+  return 'neutral'
+}
 
 const RANGE_OPTIONS = [
   { label: '12 M', months: 12 },
   { label: '6 M', months: 6 },
   { label: '3 M', months: 3 },
   { label: '1 M', months: 1 },
-];
+] as const
 
 const AnalyticsPage: React.FC = () => {
-  const theme = useTheme();
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const theme = useTheme()
+  const { user } = useAuth()
+  usePositionWS()
 
-  usePositionWS();
-
-  const [range, setRange] = useState(12);
+  const [range, setRange] = useState<number>(12)
 
   const summaryQuery = useQuery<Summary, Error>({
-    queryKey: ['analytics', 'summary'],
+    queryKey: ['analytics', 'summary', user?.id],
     queryFn: () =>
-      AnalyticsAPI.get<Summary>('/analytics/summary', {
-        params: { userId: user!.id },
-      }).then(res => res.data),
+      AnalyticsAPI.get<Summary>('/analytics/summary', { params: { userId: user!.id } }).then(
+        (res) => res.data
+      ),
     enabled: Boolean(user),
     keepPreviousData: true,
     refetchOnWindowFocus: false,
-  });
+  })
 
   const historyQuery = useQuery<HistoryItem[], Error>({
-    queryKey: ['analytics', 'history', range],
+    queryKey: ['analytics', 'history', user?.id, range],
     queryFn: () =>
       AnalyticsAPI.get<HistoryItem[]>('/analytics/history', {
         params: { userId: user!.id, months: range },
-      }).then(res => res.data),
+      }).then((res) => res.data),
     enabled: Boolean(user),
     keepPreviousData: true,
     refetchOnWindowFocus: false,
-  });
+  })
 
-  useEffect(() => {
-    queryClient.invalidateQueries(['analytics', 'history', range]);
-  }, [range, queryClient]);
+  const summary = summaryQuery.data
+  const history = historyQuery.data ?? []
+  const loading = summaryQuery.isLoading || historyQuery.isLoading
+  const errorMsg = summaryQuery.error?.message || historyQuery.error?.message
 
-  const summary = summaryQuery.data;
-  const history = historyQuery.data || [];
-  const loading = summaryQuery.isLoading || historyQuery.isLoading;
-  const errorMsg = summaryQuery.error?.message || historyQuery.error?.message;
+  const plTone = useMemo(() => (summary ? toneFromNumber(summary.totalPL) : 'neutral'), [summary])
+  const pctTone = useMemo(
+    () => (summary ? toneFromNumber(summary.totalPLPercent) : 'neutral'),
+    [summary]
+  )
 
-  const plColor = useMemo(() => {
-    if (!summary) return ZERO_COLOR;
-    return summary.totalPL > 0
-      ? POS_COLOR
-      : summary.totalPL < 0
-      ? NEG_COLOR
-      : ZERO_COLOR;
-  }, [summary]);
-
-  const pctColor = useMemo(() => {
-    if (!summary) return ZERO_COLOR;
-    return summary.totalPLPercent > 0
-      ? POS_COLOR
-      : summary.totalPLPercent < 0
-      ? NEG_COLOR
-      : ZERO_COLOR;
-  }, [summary]);
-
-  const handleRange = (_: React.MouseEvent<HTMLElement>, val: number) => {
-    if (val) setRange(val);
-  };
+  const tooltipStyle = useMemo(
+    () => ({
+      borderRadius: theme.shape.borderRadius,
+      boxShadow: theme.shadows[2],
+      borderColor: theme.palette.divider,
+    }),
+    [theme]
+  )
 
   return (
     <PageContainer>
@@ -127,63 +119,60 @@ const AnalyticsPage: React.FC = () => {
           <Alert severity="error">{errorMsg}</Alert>
         ) : summary ? (
           <>
-            <Box display="flex" flexWrap="wrap" gap={2} mb={3}>
-              {[
-                {
-                  title: 'Total Money Invested',
-                  value: `$${summary.invested.toFixed(2)}`,
-                  color: theme.palette.text.primary,
-                },
-                {
-                  title: 'Total P/L ($)',
-                  value: `$${summary.totalPL.toFixed(2)}`,
-                  color: plColor,
-                },
-                {
-                  title: 'Total P/L (%)',
-                  value: `${summary.totalPLPercent.toFixed(2)}%`,
-                  color: pctColor,
-                },
-              ].map(item => (
-                <Box key={item.title} flex="1 1 calc(33.333% - 16px)" minWidth="200px">
-                  <PageCard>
-                    <SectionHeader
-                      title={item.title}
-                      titleTypographyProps={{
-                        variant: 'subtitle2',
-                        color: 'textSecondary',
-                      }}
-                    />
-                    <SectionContent>
-                      <Typography variant="h5" fontWeight="bold" sx={{ color: item.color }}>
-                        {item.value}
-                      </Typography>
-                    </SectionContent>
-                  </PageCard>
-                </Box>
-              ))}
-            </Box>
+            <Grid container spacing={2} sx={{ marginBottom: 2 }}>
+              <Grid item xs={12} md={4}>
+                <MetricCard>
+                  <SectionHeader
+                    title="Total Money Invested"
+                    titleTypographyProps={{ variant: 'subtitle2', color: 'text.secondary' }}
+                  />
+                  <SectionContent>
+                    <MetricValue tone="neutral">${summary.invested.toFixed(2)}</MetricValue>
+                  </SectionContent>
+                </MetricCard>
+              </Grid>
 
-            <Box textAlign="center" mb={2}>
-              <ToggleButtonGroup
+              <Grid item xs={12} md={4}>
+                <MetricCard>
+                  <SectionHeader
+                    title="Total P/L ($)"
+                    titleTypographyProps={{ variant: 'subtitle2', color: 'text.secondary' }}
+                  />
+                  <SectionContent>
+                    <MetricValue tone={plTone}>${summary.totalPL.toFixed(2)}</MetricValue>
+                  </SectionContent>
+                </MetricCard>
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <MetricCard>
+                  <SectionHeader
+                    title="Total P/L (%)"
+                    titleTypographyProps={{ variant: 'subtitle2', color: 'text.secondary' }}
+                  />
+                  <SectionContent>
+                    <MetricValue tone={pctTone}>{summary.totalPLPercent.toFixed(2)}%</MetricValue>
+                  </SectionContent>
+                </MetricCard>
+              </Grid>
+            </Grid>
+
+            <CenteredBox>
+              <AnalyticsRangeToggleGroup
                 value={range}
                 exclusive
-                onChange={handleRange}
-                aria-label="time range"
-                sx={{
-                  '& .MuiToggleButton-root': {
-                    textTransform: 'none',
-                    fontWeight: theme.typography.fontWeightMedium,
-                  },
+                onChange={(_, val: number | null) => {
+                  if (val) setRange(val)
                 }}
+                aria-label="time range"
               >
-                {RANGE_OPTIONS.map(opt => (
+                {RANGE_OPTIONS.map((opt) => (
                   <ToggleButton key={opt.months} value={opt.months}>
                     {opt.label}
                   </ToggleButton>
                 ))}
-              </ToggleButtonGroup>
-            </Box>
+              </AnalyticsRangeToggleGroup>
+            </CenteredBox>
 
             <PageCard>
               <SectionHeader
@@ -191,28 +180,18 @@ const AnalyticsPage: React.FC = () => {
                 titleTypographyProps={{ variant: 'h6' }}
               />
               <SectionContent>
-                <Box sx={{ width: '100%', height: 350 }}>
+                <AnalyticsChartBox>
                   <ResponsiveContainer>
                     <LineChart data={history}>
-                      <CartesianGrid
-                        stroke={theme.palette.divider}
-                        strokeDasharray="3 3"
-                      />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
-                      />
+                      <CartesianGrid stroke={theme.palette.divider} strokeDasharray="3 3" />
+                      <XAxis dataKey="date" tick={{ fill: theme.palette.text.secondary, fontSize: 12 }} />
                       <YAxis
-                        tickFormatter={val => `$${val.toFixed(0)}`}
+                        tickFormatter={(val: number) => `$${val.toFixed(0)}`}
                         tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
                       />
                       <Tooltip
                         formatter={(val: number) => [`$${val.toFixed(2)}`, 'P/L']}
-                        contentStyle={{
-                          borderRadius: 8,
-                          boxShadow: theme.shadows[2],
-                          borderColor: theme.palette.divider,
-                        }}
+                        contentStyle={tooltipStyle}
                         labelStyle={{ fontWeight: 600 }}
                         itemStyle={{ color: theme.palette.text.primary }}
                       />
@@ -225,14 +204,14 @@ const AnalyticsPage: React.FC = () => {
                       />
                     </LineChart>
                   </ResponsiveContainer>
-                </Box>
+                </AnalyticsChartBox>
               </SectionContent>
             </PageCard>
           </>
         ) : null}
       </StyledContainer>
     </PageContainer>
-  );
-};
+  )
+}
 
-export default AnalyticsPage;
+export default AnalyticsPage

@@ -1,8 +1,12 @@
 import React, { useState } from 'react'
-import { Alert, Link, TextField, Typography } from '@mui/material'
+import Alert from '@mui/material/Alert'
+import Link from '@mui/material/Link'
+import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
 import { Link as RouterLink } from 'react-router-dom'
-import { useAuth } from '../context/useAuth'
+
 import { getErrorMessage } from '../api/http'
+import { useAuth } from '../context/useAuth'
 
 import {
   AuthContainer,
@@ -45,7 +49,7 @@ const RegisterPage: React.FC = () => {
             </Typography>
           </FormHeader>
 
-          {error && <Alert severity="error">{error}</Alert>}
+          {error ? <Alert severity="error">{error}</Alert> : null}
 
           <form noValidate onSubmit={handleSubmit}>
             <TextField
@@ -55,6 +59,7 @@ const RegisterPage: React.FC = () => {
               margin="normal"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
+              autoComplete="given-name"
             />
             <TextField
               fullWidth
@@ -63,6 +68,7 @@ const RegisterPage: React.FC = () => {
               margin="normal"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
+              autoComplete="family-name"
             />
             <TextField
               fullWidth
@@ -72,6 +78,7 @@ const RegisterPage: React.FC = () => {
               margin="normal"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
             />
             <TextField
               fullWidth
@@ -81,6 +88,7 @@ const RegisterPage: React.FC = () => {
               margin="normal"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
             />
 
             <FormButton type="submit" fullWidth variant="contained">
