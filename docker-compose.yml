@@ -92,7 +92,7 @@ services:
         VITE_NEWS_API_URL: ${VITE_NEWS_API_URL}
     container_name: wealthwise-frontend
     ports:
-      - "5173:80"
+      - "${FRONTEND_PORT:-5173}:80"
     depends_on:
       positions:
         condition: service_healthy
