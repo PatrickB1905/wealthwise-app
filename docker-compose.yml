@@ -22,7 +22,7 @@ services:
       dockerfile: services/positions/Dockerfile
     container_name: wealthwise-positions
     env_file:
-      - ./.env.docker
+      - ./.env
     environment:
       PORT: "4000"
     ports:
@@ -42,7 +42,7 @@ services:
       dockerfile: Dockerfile
     container_name: wealthwise-market-data
     env_file:
-      - ./.env.docker
+      - ./.env
     ports:
       - "5000:5000"
     healthcheck:
@@ -57,7 +57,7 @@ services:
       dockerfile: Dockerfile
     container_name: wealthwise-analytics
     env_file:
-      - ./.env.docker
+      - ./.env
     ports:
       - "7000:7000"
     healthcheck:
@@ -72,7 +72,7 @@ services:
       dockerfile: Dockerfile
     container_name: wealthwise-news
     env_file:
-      - ./.env.docker
+      - ./.env
     ports:
       - "6500:6500"
     healthcheck:
