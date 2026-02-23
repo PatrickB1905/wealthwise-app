@@ -25,9 +25,7 @@ def compute_history(
         return []
 
     now = pd.Timestamp.now().normalize()
-    month_ends = (
-        pd.date_range(end=now, periods=months, freq="ME").to_pydatetime().tolist()
-    )
+    month_ends = pd.date_range(end=now, periods=months, freq="ME").to_pydatetime().tolist()
 
     hist_data: dict[str, pd.Series] = {}
     for sym in tickers:
@@ -52,8 +50,6 @@ def compute_history(
             price = float(series.loc[idx[-1]]) if len(idx) > 0 else 0.0
             total_profit += (price - r.buy_price) * r.quantity
 
-        points.append(
-            HistoryPoint(date=dt.strftime("%Y-%m-%d"), value=round(total_profit, 2))
-        )
+        points.append(HistoryPoint(date=dt.strftime("%Y-%m-%d"), value=round(total_profit, 2)))
 
     return points

@@ -44,9 +44,7 @@ def get_market_data_client(
     settings: Settings = Depends(get_settings),
 ) -> MarketDataClient:
     http = get_http_client(request)
-    return MarketDataClient(
-        settings.market_data_url, http=http, timeout_seconds=5.0, retries=2
-    )
+    return MarketDataClient(settings.market_data_url, http=http, timeout_seconds=5.0, retries=2)
 
 
 def get_yahoo_client() -> YahooFinanceClient:

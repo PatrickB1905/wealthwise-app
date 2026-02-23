@@ -46,9 +46,7 @@ class MarketDataClient:
                 last_exc = exc
                 if attempt < self._retries:
                     sleep_s = 0.25 * (2**attempt)
-                    log.warning(
-                        "Market Data fetch failed (attempt %s): %s", attempt + 1, exc
-                    )
+                    log.warning("Market Data fetch failed (attempt %s): %s", attempt + 1, exc)
                     time.sleep(sleep_s)
                     continue
 
