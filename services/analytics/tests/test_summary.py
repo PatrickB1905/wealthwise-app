@@ -1,10 +1,9 @@
 from datetime import datetime
 
-from fastapi.testclient import TestClient
-
 from app.api import routes
 from app.main import create_app
 from app.repositories.positions import PositionRow
+from fastapi.testclient import TestClient
 
 
 class RepoClosedOnly:

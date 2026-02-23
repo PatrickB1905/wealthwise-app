@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -12,10 +11,10 @@ from sqlalchemy.engine import Engine
 class PositionRow:
     quantity: float
     buy_price: float
-    sell_price: Optional[float]
-    sell_date: Optional[datetime]
+    sell_price: float | None
+    sell_date: datetime | None
     ticker: str
-    buy_date: Optional[datetime]
+    buy_date: datetime | None
 
 
 class PositionsRepository:
@@ -23,8 +22,7 @@ class PositionsRepository:
         self._engine = engine
 
     def list_by_user(self, user_id: int) -> list[PositionRow]:
-        sql = text(
-            """
+        sql = text("""
             SELECT
               quantity,
               "buyPrice"   AS buy_price,
@@ -34,8 +32,7 @@ class PositionsRepository:
               "buyDate"    AS buy_date
             FROM "Position"
             WHERE "userId" = :uid
-            """
-        )
+            """)
 
         with self._engine.connect() as conn:
             rows = conn.execute(sql, {"uid": user_id}).mappings().all()

@@ -25,6 +25,6 @@ class YahooFinanceClient:
                 series.index = series.index.tz_convert(None)
             series.index = series.index.normalize()
             return series
-        except Exception as exc:
+        except Exception:
             log.exception("Error fetching history for %s", ticker)
             return pd.Series(dtype=float)

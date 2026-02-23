@@ -21,10 +21,7 @@ def compute_summary(rows: list[PositionRow], quotes: dict[str, float]) -> Summar
     closed = [r for r in rows if r.sell_date is not None]
     open_ = [r for r in rows if r.sell_date is None]
 
-    closed_pl = sum(
-        ((r.sell_price or 0.0) - r.buy_price) * r.quantity
-        for r in closed
-    )
+    closed_pl = sum(((r.sell_price or 0.0) - r.buy_price) * r.quantity for r in closed)
 
     open_pl = 0.0
     for r in open_:

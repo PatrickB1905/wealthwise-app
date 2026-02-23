@@ -1,2 +1,15 @@
-# Python virtual environment
+# Python caches
+__pycache__/
+*.pyc
+
+# Virtual env
 .venv/
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS / editor
+.DS_Store
+.vscode/

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 
 import pandas as pd
 
@@ -49,8 +48,6 @@ def compute_history(rows: list[PositionRow], months: int, yf_client: YahooFinanc
             price = float(series.loc[idx[-1]]) if len(idx) > 0 else 0.0
             total_profit += (price - r.buy_price) * r.quantity
 
-        points.append(
-            HistoryPoint(date=dt.strftime("%Y-%m-%d"), value=round(total_profit, 2))
-        )
+        points.append(HistoryPoint(date=dt.strftime("%Y-%m-%d"), value=round(total_profit, 2)))
 
     return points

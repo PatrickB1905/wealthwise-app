@@ -10,7 +10,7 @@ from app.db.engine import build_engine
 
 
 def create_app() -> FastAPI:
-    settings = Settings()
+    settings = Settings()  # type: ignore[call-arg]
     configure_logging(settings.log_level)
 
     app = FastAPI(title="Analytics Service")

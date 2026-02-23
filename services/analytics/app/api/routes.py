@@ -35,7 +35,7 @@ def get_yahoo_client() -> YahooFinanceClient:
 
 
 @router.get("/api/health")
-def health(settings: Settings = Depends(get_settings)):
+def health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
     return {"status": "OK", "origin": settings.frontend_origin}
 
 
@@ -44,12 +44,12 @@ def get_summary(
     userId: int = Query(..., description="User ID"),
     repo: PositionsRepository = Depends(get_positions_repo),
     md: MarketDataClient = Depends(get_market_data_client),
-):
+) -> Summary:
     try:
         rows = repo.list_by_user(userId)
-    except Exception:
+    except Exception as exc:
         log.exception("Database query failed for summary")
-        raise HTTPException(status_code=503, detail="Database unavailable")
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
 
     try:
         quotes = build_quotes_for_open_positions(md, rows)
@@ -73,12 +73,12 @@ def get_history(
     months: int = Query(12, ge=1, description="Months back to include"),
     repo: PositionsRepository = Depends(get_positions_repo),
     yf_client: YahooFinanceClient = Depends(get_yahoo_client),
-):
+) -> list[HistoryItem]:
     try:
         rows = repo.list_by_user(userId)
-    except Exception:
+    except Exception as exc:
         log.exception("Database query failed for history")
-        raise HTTPException(status_code=503, detail="Database unavailable")
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
 
     points = compute_history(rows, months, yf_client)
     return [HistoryItem(date=p.date, value=p.value) for p in points]
