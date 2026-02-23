@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette.requests import Request
-from fastapi.responses import JSONResponse
 
 from app.api.schemas import HistoryItem, Summary
 from app.clients.market_data import MarketDataClient
 from app.clients.yahoo_finance import YahooFinanceClient
 from app.core.config import Settings
-from app.db.engine import build_engine
 from app.repositories.positions import PositionsRepository
 from app.services.history import compute_history
 from app.services.summary import build_quotes_for_open_positions, compute_summary
 
+log = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -20,8 +21,8 @@ def get_settings(request: Request) -> Settings:
     return request.app.state.settings
 
 
-def get_positions_repo(settings: Settings = Depends(get_settings)) -> PositionsRepository:
-    engine = build_engine(settings.database_url)
+def get_positions_repo(request: Request) -> PositionsRepository:
+    engine = request.app.state.db_engine
     return PositionsRepository(engine)
 
 
@@ -44,12 +45,15 @@ def get_summary(
     repo: PositionsRepository = Depends(get_positions_repo),
     md: MarketDataClient = Depends(get_market_data_client),
 ):
-    rows = repo.list_by_user(userId)
+    try:
+        rows = repo.list_by_user(userId)
+    except Exception:
+        log.exception("Database query failed for summary")
+        raise HTTPException(status_code=503, detail="Database unavailable")
 
-    quotes = {}
     try:
         quotes = build_quotes_for_open_positions(md, rows)
-    except Exception:
+    except RuntimeError:
         quotes = {}
 
     res = compute_summary(rows, quotes)
@@ -70,6 +74,11 @@ def get_history(
     repo: PositionsRepository = Depends(get_positions_repo),
     yf_client: YahooFinanceClient = Depends(get_yahoo_client),
 ):
-    rows = repo.list_by_user(userId)
+    try:
+        rows = repo.list_by_user(userId)
+    except Exception:
+        log.exception("Database query failed for history")
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
     points = compute_history(rows, months, yf_client)
     return [HistoryItem(date=p.date, value=p.value) for p in points]

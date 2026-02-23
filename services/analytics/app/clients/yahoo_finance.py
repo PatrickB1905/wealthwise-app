@@ -23,6 +23,7 @@ class YahooFinanceClient:
             series = df["Close"]
             if getattr(series.index, "tz", None) is not None:
                 series.index = series.index.tz_convert(None)
+            series.index = series.index.normalize()
             return series
         except Exception as exc:
             log.exception("Error fetching history for %s", ticker)

@@ -23,7 +23,7 @@ def compute_history(rows: list[PositionRow], months: int, yf_client: YahooFinanc
     if not tickers:
         return []
 
-    now = datetime.now()
+    now = pd.Timestamp.now().normalize()
     month_ends = pd.date_range(end=now, periods=months, freq="ME").to_pydatetime().tolist()
 
     hist_data: dict[str, pd.Series] = {}

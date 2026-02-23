@@ -28,7 +28,9 @@ def compute_summary(rows: list[PositionRow], quotes: dict[str, float]) -> Summar
 
     open_pl = 0.0
     for r in open_:
-        current = quotes.get(r.ticker, 0.0)
+        if r.ticker not in quotes:
+            continue
+        current = quotes[r.ticker]
         open_pl += (current - r.buy_price) * r.quantity
 
     total_pl = closed_pl + open_pl

@@ -6,11 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router
 from app.core.config import Settings
 from app.core.logging import configure_logging
+from app.db.engine import build_engine
 
 
 def create_app() -> FastAPI:
     settings = Settings()
-
     configure_logging(settings.log_level)
 
     app = FastAPI(title="Analytics Service")
@@ -24,5 +24,7 @@ def create_app() -> FastAPI:
     )
 
     app.state.settings = settings
+    app.state.db_engine = build_engine(settings.database_url)
+
     app.include_router(router)
     return app
