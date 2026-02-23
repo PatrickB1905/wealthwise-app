@@ -1,8 +1,11 @@
 fastapi
 uvicorn[standard]
 python-dotenv
+pydantic-settings
 sqlalchemy
 psycopg2-binary
 yfinance
 pandas
-requests
+httpx
+
+pytest
