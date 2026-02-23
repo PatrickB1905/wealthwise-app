@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.engine import Engine
 from starlette.requests import Request
 
 from app.api.schemas import HistoryItem, Summary
@@ -21,8 +22,11 @@ def get_settings(request: Request) -> Settings:
     return request.app.state.settings
 
 
-def get_positions_repo(request: Request) -> PositionsRepository:
-    engine = request.app.state.db_engine
+def get_db_engine(request: Request) -> Engine:
+    return request.app.state.db_engine
+
+
+def get_positions_repo(engine: Engine = Depends(get_db_engine)) -> PositionsRepository:
     return PositionsRepository(engine)
 
 
@@ -35,7 +39,17 @@ def get_yahoo_client() -> YahooFinanceClient:
 
 
 @router.get("/api/health")
-def health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
+def health(
+    engine: Engine = Depends(get_db_engine),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, str]:
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql("SELECT 1")
+    except Exception as exc:
+        log.warning("Health check failed (db): %s", exc)
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
+
     return {"status": "OK", "origin": settings.frontend_origin}
 
 

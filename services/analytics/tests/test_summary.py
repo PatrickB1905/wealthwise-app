@@ -57,8 +57,9 @@ def test_summary_closed_only():
     app.dependency_overrides[routes.get_positions_repo] = lambda: RepoClosedOnly()
     app.dependency_overrides[routes.get_market_data_client] = lambda: MarketDataOk()
 
-    client = TestClient(app)
-    resp = client.get("/api/analytics/summary", params={"userId": 1})
+    with TestClient(app) as client:
+        resp = client.get("/api/analytics/summary", params={"userId": 1})
+
     assert resp.status_code == 200
     body = resp.json()
 
@@ -74,8 +75,9 @@ def test_summary_open_only_with_quotes():
     app.dependency_overrides[routes.get_positions_repo] = lambda: RepoOpenOnly()
     app.dependency_overrides[routes.get_market_data_client] = lambda: MarketDataOk()
 
-    client = TestClient(app)
-    resp = client.get("/api/analytics/summary", params={"userId": 1})
+    with TestClient(app) as client:
+        resp = client.get("/api/analytics/summary", params={"userId": 1})
+
     assert resp.status_code == 200
     body = resp.json()
 
@@ -91,8 +93,9 @@ def test_summary_market_data_down_degrades_gracefully():
     app.dependency_overrides[routes.get_positions_repo] = lambda: RepoMixed()
     app.dependency_overrides[routes.get_market_data_client] = lambda: MarketDataDown()
 
-    client = TestClient(app)
-    resp = client.get("/api/analytics/summary", params={"userId": 1})
+    with TestClient(app) as client:
+        resp = client.get("/api/analytics/summary", params={"userId": 1})
+
     assert resp.status_code == 200
     body = resp.json()
 

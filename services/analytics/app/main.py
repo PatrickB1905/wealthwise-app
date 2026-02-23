@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,22 +12,43 @@ from app.core.logging import configure_logging
 from app.db.engine import build_engine
 
 
-def create_app() -> FastAPI:
-    settings = Settings()  # type: ignore[call-arg]
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    settings: Settings = app.state.settings
+    app.state.db_engine = build_engine(settings.database_url)
+
+    try:
+        yield
+    finally:
+        engine = getattr(app.state, "db_engine", None)
+        if engine is not None:
+            engine.dispose()
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    """
+    App factory:
+    - `settings=None` -> load from environment / .env
+    - tests can pass Settings(...) directly for isolation
+    """
+    settings = settings or Settings()
     configure_logging(settings.log_level)
 
-    app = FastAPI(title="Analytics Service")
+    app = FastAPI(
+        title="Analytics Service",
+        version="1.0.0",
+        lifespan=lifespan,
+    )
+
+    app.state.settings = settings
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.frontend_origin],
+        allow_origins=settings.frontend_origins,
         allow_credentials=True,
         allow_methods=["GET", "OPTIONS"],
         allow_headers=["*"],
     )
-
-    app.state.settings = settings
-    app.state.db_engine = build_engine(settings.database_url)
 
     app.include_router(router)
     return app

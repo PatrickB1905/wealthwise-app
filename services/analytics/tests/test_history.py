@@ -51,8 +51,9 @@ def test_history_empty_positions():
     app.dependency_overrides[routes.get_positions_repo] = lambda: RepoEmpty()
     app.dependency_overrides[routes.get_yahoo_client] = lambda: FakeYF()
 
-    client = TestClient(app)
-    resp = client.get("/api/analytics/history", params={"userId": 1, "months": 2})
+    with TestClient(app) as client:
+        resp = client.get("/api/analytics/history", params={"userId": 1, "months": 2})
+
     assert resp.status_code == 200
     assert resp.json() == []
 
@@ -62,8 +63,9 @@ def test_history_open_position_uses_last_close():
     app.dependency_overrides[routes.get_positions_repo] = lambda: RepoSimple()
     app.dependency_overrides[routes.get_yahoo_client] = lambda: FakeYF()
 
-    client = TestClient(app)
-    resp = client.get("/api/analytics/history", params={"userId": 1, "months": 2})
+    with TestClient(app) as client:
+        resp = client.get("/api/analytics/history", params={"userId": 1, "months": 2})
+
     assert resp.status_code == 200
     data = resp.json()
 
@@ -78,8 +80,9 @@ def test_history_buy_after_window_contributes_zero():
     app.dependency_overrides[routes.get_positions_repo] = lambda: RepoBuyAfterEnd()
     app.dependency_overrides[routes.get_yahoo_client] = lambda: FakeYF()
 
-    client = TestClient(app)
-    resp = client.get("/api/analytics/history", params={"userId": 1, "months": 2})
+    with TestClient(app) as client:
+        resp = client.get("/api/analytics/history", params={"userId": 1, "months": 2})
+
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 2
