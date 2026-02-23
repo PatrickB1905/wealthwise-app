@@ -20,9 +20,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
-        engine = getattr(app.state, "db_engine", None)
-        if engine is not None:
-            engine.dispose()
+        http_client = getattr(app.state, "http_client", None)
+        if http_client is not None:
+            http_client.close()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:

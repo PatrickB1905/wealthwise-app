@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.engine import Engine
 from starlette.requests import Request
@@ -30,8 +31,20 @@ def get_positions_repo(engine: Engine = Depends(get_db_engine)) -> PositionsRepo
     return PositionsRepository(engine)
 
 
-def get_market_data_client(settings: Settings = Depends(get_settings)) -> MarketDataClient:
-    return MarketDataClient(settings.market_data_url, timeout_seconds=5.0)
+def get_http_client(request: Request) -> httpx.Client:
+    client = getattr(request.app.state, "http_client", None)
+    if client is None:
+        client = httpx.Client(headers={"User-Agent": "wealthwise-analytics/1.0"})
+        request.app.state.http_client = client
+    return client
+
+
+def get_market_data_client(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+) -> MarketDataClient:
+    http = get_http_client(request)
+    return MarketDataClient(settings.market_data_url, http=http, timeout_seconds=5.0, retries=2)
 
 
 def get_yahoo_client() -> YahooFinanceClient:
