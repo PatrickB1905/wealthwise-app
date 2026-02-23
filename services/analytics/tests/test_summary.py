@@ -37,7 +37,9 @@ class RepoOpenOnly:
 class RepoMixed:
     def list_by_user(self, user_id: int):
         return [
-            PositionRow(2, 10.0, 15.0, datetime(2025, 1, 10), "AAPL", datetime(2025, 1, 1)),
+            PositionRow(
+                2, 10.0, 15.0, datetime(2025, 1, 10), "AAPL", datetime(2025, 1, 1)
+            ),
             PositionRow(1, 100.0, None, None, "MSFT", datetime(2025, 1, 1)),
         ]
 

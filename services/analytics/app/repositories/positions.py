@@ -43,7 +43,9 @@ class PositionsRepository:
                 PositionRow(
                     quantity=float(r["quantity"]),
                     buy_price=float(r["buy_price"]),
-                    sell_price=float(r["sell_price"]) if r["sell_price"] is not None else None,
+                    sell_price=(
+                        float(r["sell_price"]) if r["sell_price"] is not None else None
+                    ),
                     sell_date=r["sell_date"],
                     ticker=str(r["ticker"]),
                     buy_date=r["buy_date"],
