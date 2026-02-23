@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
 
 
 def _split_csv(value: str) -> list[str]:
@@ -16,7 +17,9 @@ class Settings(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # Local dev convenience: load from file
+        # Docker: set LOAD_DOTENV=0 to rely on injected env vars only
+        env_file=".env" if os.getenv("LOAD_DOTENV", "1") == "1" else None,
         env_file_encoding="utf-8",
         extra="ignore",
     )

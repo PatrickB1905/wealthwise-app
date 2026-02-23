@@ -56,10 +56,12 @@ services:
       context: ./services/analytics
       dockerfile: Dockerfile
     container_name: wealthwise-analytics
+    environment:
+      LOAD_DOTENV: "0"
     env_file:
       - ./.env
     ports:
-      - "7000:7000"
+      - "${ANALYTICS_PORT:-7000}:7000"
     depends_on:
       market-data:
         condition: service_healthy
