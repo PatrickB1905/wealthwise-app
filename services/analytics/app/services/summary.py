@@ -42,6 +42,8 @@ def compute_summary(rows: list[PositionRow], quotes: dict[str, float]) -> Summar
     )
 
 
-def build_quotes_for_open_positions(client: MarketDataClient, rows: list[PositionRow]) -> dict[str, float]:
+def build_quotes_for_open_positions(
+    client: MarketDataClient, rows: list[PositionRow]
+) -> dict[str, float]:
     symbols = {r.ticker for r in rows if r.sell_date is None}
     return client.fetch_quotes(symbols) if symbols else {}

@@ -29,5 +29,5 @@ class MarketDataClient:
             data = resp.json()
             return {str(q["symbol"]): float(q["currentPrice"]) for q in data}
         except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
-            log.exception("Market Data fetch failed")
+            log.warning("Market Data fetch failed: %s", exc)
             raise RuntimeError("Market data unavailable") from exc

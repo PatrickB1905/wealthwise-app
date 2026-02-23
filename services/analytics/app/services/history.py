@@ -14,7 +14,9 @@ class HistoryPoint:
     value: float
 
 
-def compute_history(rows: list[PositionRow], months: int, yf_client: YahooFinanceClient) -> list[HistoryPoint]:
+def compute_history(
+    rows: list[PositionRow], months: int, yf_client: YahooFinanceClient
+) -> list[HistoryPoint]:
     if not rows:
         return []
 

@@ -60,6 +60,9 @@ services:
       - ./.env
     ports:
       - "7000:7000"
+    depends_on:
+      market-data:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:7000/api/health')\""]
       interval: 10s
