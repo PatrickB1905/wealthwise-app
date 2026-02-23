@@ -41,7 +41,7 @@ class Settings(BaseSettings):
         validation_alias="FRONTEND_ORIGINS",
     )
 
-    port: int = Field(default=7000, validation_alias="PORT")
+    port: int = Field(default=7000, validation_alias="ANALYTICS_PORT")
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
 
     @property
