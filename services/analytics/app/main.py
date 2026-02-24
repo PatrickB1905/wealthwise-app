@@ -24,9 +24,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if http_client is not None:
             http_client.close()
 
-        db_engine = getattr(app.state, "db_engine", None)
-        if db_engine is not None:
-            db_engine.dispose()
+        engine = getattr(app.state, "db_engine", None)
+        if engine is not None:
+            engine.dispose()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:

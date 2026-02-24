@@ -2,17 +2,22 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Any, Protocol
 
 import httpx
 
 log = logging.getLogger(__name__)
 
 
+class HttpGetClient(Protocol):
+    def get(self, url: str, *, params: dict[str, str], timeout: float) -> Any: ...
+
+
 class MarketDataClient:
     def __init__(
         self,
         base_url: str,
-        http: httpx.Client,
+        http: HttpGetClient,
         timeout_seconds: float = 5.0,
         retries: int = 2,
     ) -> None:
@@ -46,7 +51,11 @@ class MarketDataClient:
                 last_exc = exc
                 if attempt < self._retries:
                     sleep_s = 0.25 * (2**attempt)
-                    log.warning("Market Data fetch failed (attempt %s): %s", attempt + 1, exc)
+                    log.warning(
+                        "Market Data fetch failed (attempt %s): %s",
+                        attempt + 1,
+                        exc,
+                    )
                     time.sleep(sleep_s)
                     continue
 
