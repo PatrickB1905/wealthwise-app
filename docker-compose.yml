@@ -51,25 +51,26 @@ services:
       timeout: 5s
       retries: 15
 
-  analytics:
-    build:
-      context: ./services/analytics
-      dockerfile: Dockerfile
-    container_name: wealthwise-analytics
-    environment:
-      LOAD_DOTENV: "0"
-    env_file:
-      - ./.env
-    ports:
-      - "${ANALYTICS_PORT:-7000}:7000"
-    depends_on:
-      market-data:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:7000/api/health')\""]
-      interval: 10s
-      timeout: 5s
-      retries: 15
+analytics:
+  build:
+    context: ./services/analytics
+    dockerfile: Dockerfile
+  container_name: wealthwise-analytics
+  env_file:
+    - ./.env
+  environment:
+    LOAD_DOTENV: "0"
+  ports:
+    # host port configurable, container port fixed
+    - "${ANALYTICS_PORT:-7000}:7000"
+  depends_on:
+    market-data:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:7000/api/health')\""]
+    interval: 10s
+    timeout: 5s
+    retries: 15
 
   news:
     build:

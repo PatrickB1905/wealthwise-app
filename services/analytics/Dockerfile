@@ -4,7 +4,10 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    # Docker should rely on injected env vars only (from docker-compose env_file),
+    # never from a local .env file.
+    LOAD_DOTENV=0
 
 RUN pip install --upgrade pip
 
