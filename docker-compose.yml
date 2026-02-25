@@ -79,10 +79,12 @@ services:
       context: ./services/news
       dockerfile: Dockerfile
     container_name: wealthwise-news
+    environment:
+      LOAD_DOTENV: "0"
     env_file:
       - ./.env
     ports:
-      - "6500:6500"
+      - "${NEWS_PORT:-6500}:6500"
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:6500/api/health')\""]
       interval: 10s
