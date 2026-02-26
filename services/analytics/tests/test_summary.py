@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 from app.api import routes
@@ -5,9 +7,12 @@ from app.main import create_app
 from app.repositories.positions import PositionRow
 from fastapi.testclient import TestClient
 
+DUMMY_AUTH = "Bearer test-token"
+
 
 class RepoClosedOnly:
-    def list_by_user(self, user_id: int):
+    def list_for_current_user(self, auth_header: str):
+        assert auth_header.startswith("Bearer ")
         return [
             PositionRow(
                 quantity=2,
@@ -21,7 +26,8 @@ class RepoClosedOnly:
 
 
 class RepoOpenOnly:
-    def list_by_user(self, user_id: int):
+    def list_for_current_user(self, auth_header: str):
+        assert auth_header.startswith("Bearer ")
         return [
             PositionRow(
                 quantity=1,
@@ -35,7 +41,8 @@ class RepoOpenOnly:
 
 
 class RepoMixed:
-    def list_by_user(self, user_id: int):
+    def list_for_current_user(self, auth_header: str):
+        assert auth_header.startswith("Bearer ")
         return [
             PositionRow(2, 10.0, 15.0, datetime(2025, 1, 10), "AAPL", datetime(2025, 1, 1)),
             PositionRow(1, 100.0, None, None, "MSFT", datetime(2025, 1, 1)),
@@ -52,13 +59,17 @@ class MarketDataDown:
         raise RuntimeError("Market data unavailable")
 
 
-def test_summary_closed_only():
+def _make_client(repo, md):
     app = create_app()
-    app.dependency_overrides[routes.get_positions_repo] = lambda: RepoClosedOnly()
-    app.dependency_overrides[routes.get_market_data_client] = lambda: MarketDataOk()
+    app.dependency_overrides[routes.require_auth_header] = lambda: DUMMY_AUTH
+    app.dependency_overrides[routes.get_positions_repo] = lambda: repo
+    app.dependency_overrides[routes.get_market_data_client] = lambda: md
+    return TestClient(app)
 
-    with TestClient(app) as client:
-        resp = client.get("/api/analytics/summary", params={"userId": 1})
+
+def test_summary_closed_only():
+    with _make_client(RepoClosedOnly(), MarketDataOk()) as client:
+        resp = client.get("/api/analytics/summary")
 
     assert resp.status_code == 200
     body = resp.json()
@@ -71,12 +82,8 @@ def test_summary_closed_only():
 
 
 def test_summary_open_only_with_quotes():
-    app = create_app()
-    app.dependency_overrides[routes.get_positions_repo] = lambda: RepoOpenOnly()
-    app.dependency_overrides[routes.get_market_data_client] = lambda: MarketDataOk()
-
-    with TestClient(app) as client:
-        resp = client.get("/api/analytics/summary", params={"userId": 1})
+    with _make_client(RepoOpenOnly(), MarketDataOk()) as client:
+        resp = client.get("/api/analytics/summary")
 
     assert resp.status_code == 200
     body = resp.json()
@@ -89,12 +96,8 @@ def test_summary_open_only_with_quotes():
 
 
 def test_summary_market_data_down_degrades_gracefully():
-    app = create_app()
-    app.dependency_overrides[routes.get_positions_repo] = lambda: RepoMixed()
-    app.dependency_overrides[routes.get_market_data_client] = lambda: MarketDataDown()
-
-    with TestClient(app) as client:
-        resp = client.get("/api/analytics/summary", params={"userId": 1})
+    with _make_client(RepoMixed(), MarketDataDown()) as client:
+        resp = client.get("/api/analytics/summary")
 
     assert resp.status_code == 200
     body = resp.json()

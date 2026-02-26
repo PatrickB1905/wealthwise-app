@@ -14,6 +14,12 @@ addopts = [
   "--cov-fail-under=85",
 ]
 
+filterwarnings = [
+  "error::DeprecationWarning",
+  "error::FutureWarning",
+  "error::PendingDeprecationWarning",
+]
+
 [tool.black]
 line-length = 100
 target-version = ["py310"]
