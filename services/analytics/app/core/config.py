@@ -11,28 +11,20 @@ def _split_csv(value: str) -> list[str]:
 
 
 class Settings(BaseSettings):
-    """
-    Loads from:
-    - environment variables (Docker `env_file` -> env vars)
-    - local `.env` for non-docker runs
-    """
-
     model_config = SettingsConfigDict(
-        # Local dev convenience: load from file
-        # Docker: set LOAD_DOTENV=0 to rely on injected env vars only
         env_file=".env" if os.getenv("LOAD_DOTENV", "1") == "1" else None,
         env_file_encoding="utf-8",
         extra="ignore",
     )
 
-    database_url: str = Field(
-        default="postgresql://postgres:postgres@localhost:5432/wealthwise",
-        validation_alias="DATABASE_URL",
+    positions_url: str = Field(
+        default="http://localhost:4000/api",
+        validation_alias="POSITIONS_SERVICE_URL",
     )
 
     market_data_url: str = Field(
         default="http://localhost:5000/api",
-        validation_alias="MARKET_DATA_URL",
+        validation_alias="MARKET_DATA_SERVICE_URL",
     )
 
     frontend_origin: str = Field(
@@ -45,7 +37,7 @@ class Settings(BaseSettings):
         validation_alias="FRONTEND_ORIGINS",
     )
 
-    port: int = Field(default=7000, validation_alias="ANALYTICS_PORT")
+    port: int = Field(default=7000, validation_alias="ANALYTICS_SERVICE_PORT")
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
 
     @property

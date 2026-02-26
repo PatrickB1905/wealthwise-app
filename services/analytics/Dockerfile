@@ -23,6 +23,6 @@ USER appuser
 EXPOSE 7000
 
 HEALTHCHECK --interval=10s --timeout=5s --retries=15 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7000/api/health').read()"
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7000/api/ready').read()"
 
 CMD ["sh", "-c", "gunicorn -k uvicorn.workers.UvicornWorker -w ${WEB_CONCURRENCY:-2} -b 0.0.0.0:7000 main:app --access-logfile - --error-logfile -"]

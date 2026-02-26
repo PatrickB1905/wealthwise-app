@@ -9,24 +9,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router
 from app.core.config import Settings
 from app.core.logging import configure_logging
-from app.db.engine import build_engine
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    settings: Settings = app.state.settings
-    app.state.db_engine = build_engine(settings.database_url)
-
     try:
         yield
     finally:
         http_client = getattr(app.state, "http_client", None)
         if http_client is not None:
             http_client.close()
-
-        engine = getattr(app.state, "db_engine", None)
-        if engine is not None:
-            engine.dispose()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
