@@ -18,20 +18,20 @@ services:
 
   positions:
     build:
-      context: .
-      dockerfile: services/positions/Dockerfile
+      context: ./services/positions
+      dockerfile: Dockerfile
     container_name: wealthwise-positions
     env_file:
       - ./.env
     environment:
-      PORT: "4000"
+      LOAD_DOTENV: "0"
     ports:
-      - "4000:4000"
+      - "${POSITIONS_PORT:-4000}:4000"
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/api/health')\""]
       interval: 10s
       timeout: 5s
       retries: 15
@@ -63,7 +63,6 @@ services:
     environment:
       LOAD_DOTENV: "0"
     ports:
-      # host port configurable, container port fixed
       - "${ANALYTICS_PORT:-7000}:7000"
     depends_on:
       market-data:
