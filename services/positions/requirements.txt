@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+python-socketio[asgi]
+sqlalchemy>=2.0
+asyncpg
+pyjwt
+yfinance
+pydantic-settings
+alembic
+psycopg[binary]
+
+passlib[argon2]
+argon2-cffi
