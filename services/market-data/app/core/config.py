@@ -33,7 +33,7 @@ class Settings(BaseSettings):
         validation_alias="FRONTEND_ORIGINS",
     )
 
-    port: int = Field(default=5000, validation_alias="MARKET_DATA_PORT")
+    port: int = Field(default=5000, validation_alias="MARKET_DATA_SERVICE_PORT")
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
 
     max_symbols: int = Field(default=50, validation_alias="MARKET_DATA_MAX_SYMBOLS")

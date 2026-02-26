@@ -38,7 +38,7 @@ class Settings(BaseSettings):
         validation_alias="FRONTEND_ORIGINS",
     )
 
-    port: int = Field(default=6500, validation_alias="NEWS_PORT")
+    port: int = Field(default=6500, validation_alias="NEWS_SERVICE_PORT")
 
     per_symbol_limit: int = Field(default=5, validation_alias="NEWS_PER_SYMBOL_LIMIT")
     request_timeout_seconds: float = Field(default=5.0, validation_alias="NEWS_TIMEOUT_SECONDS")

@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     frontend_origins_raw: str | None = Field(default=None, alias="FRONTEND_ORIGINS")
 
     # App
-    port: int = Field(default=4000, alias="POSITIONS_PORT")
+    port: int = Field(default=4000, alias="POSITIONS_SERVICE_PORT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
     # Polling
