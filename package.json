@@ -12,7 +12,11 @@
     "lint": "yarn workspace frontend lint",
     "format": "yarn workspace frontend format",
     "frontend:dev": "yarn workspace frontend dev",
-    "frontend:build": "yarn workspace frontend build"
+    "frontend:build": "yarn workspace frontend build",
+    "typecheck": "yarn workspace frontend typecheck",
+    "test": "yarn workspace frontend test",
+    "test:coverage": "yarn workspace frontend test:coverage",
+	"verify": "yarn lint && yarn typecheck && yarn test"
   },
   "volta": {
     "node": "20.11.1",
