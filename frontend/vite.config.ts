@@ -6,10 +6,6 @@ const devPort = Number(process.env.PORT) || 5173
 export default defineConfig({
   plugins: [react()],
 
-  define: {
-    'globalThis.__VITE_ENV__': 'import.meta.env',
-  },
-
   server: {
     port: devPort,
     strictPort: true,

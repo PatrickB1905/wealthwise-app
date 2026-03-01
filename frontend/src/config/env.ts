@@ -5,34 +5,26 @@ type ViteEnvKey =
   | 'VITE_NEWS_API_URL'
   | 'VITE_POSITIONS_WS_URL'
 
-type EnvLike = Record<string, unknown>
-
-function readInjectedEnv(): EnvLike | undefined {
-  return (globalThis as unknown as { __VITE_ENV__?: EnvLike }).__VITE_ENV__
-}
-
-function readEnv(name: ViteEnvKey): string | undefined {
-  const injected = readInjectedEnv()
-  const injectedVal = injected?.[name]
-  if (typeof injectedVal === 'string' && injectedVal.trim()) return injectedVal
-
-  const procVal = (process.env as Record<string, string | undefined>)[name]
-  if (typeof procVal === 'string' && procVal.trim()) return procVal
-
+function readViteEnv(name: ViteEnvKey): string | undefined {
+  const raw = import.meta.env[name]
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim()
+    return trimmed.length ? trimmed : undefined
+  }
   return undefined
 }
 
 function requiredEnv(name: Exclude<ViteEnvKey, 'VITE_POSITIONS_WS_URL'>): string {
-  const value = readEnv(name)
+  const value = readViteEnv(name)
   if (!value) {
-    const mode = process.env.NODE_ENV ?? 'unknown'
+    const mode = import.meta.env.MODE ?? 'unknown'
     throw new Error(
       [
         `Missing required env var: ${name}`,
         `Mode: ${mode}`,
         'Fix:',
-        '- Create frontend/.env.local (non-docker) or set env at build time (docker).',
-        `- Ensure ${name} is defined.`,
+        '- For Docker: ensure docker-compose passes VITE_* build args to the frontend image.',
+        '- For local dev: create frontend/.env.local with the required VITE_* vars.',
       ].join('\n')
     )
   }
@@ -44,7 +36,7 @@ export const ENV = {
   MARKET_DATA_API_URL: requiredEnv('VITE_MARKET_DATA_API_URL'),
   ANALYTICS_API_URL: requiredEnv('VITE_ANALYTICS_API_URL'),
   NEWS_API_URL: requiredEnv('VITE_NEWS_API_URL'),
-  POSITIONS_WS_URL: readEnv('VITE_POSITIONS_WS_URL'),
+  POSITIONS_WS_URL: readViteEnv('VITE_POSITIONS_WS_URL'),
 } as const
 
 export const STORAGE_KEYS = {
