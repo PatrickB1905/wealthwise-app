@@ -5,7 +5,7 @@ import { useAuth } from '../context/useAuth'
 import { FullPageCentered } from './layout/Styled'
 
 interface Props {
-  children: JSX.Element
+  children: React.ReactElement
 }
 
 const PrivateRoute: React.FC<Props> = ({ children }) => {

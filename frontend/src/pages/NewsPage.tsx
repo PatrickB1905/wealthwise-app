@@ -4,6 +4,7 @@ import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
 import Divider from '@mui/material/Divider'
 import List from '@mui/material/List'
+import ListItemButton from '@mui/material/ListItemButton'
 import Typography from '@mui/material/Typography'
 import { Link as RouterLink } from 'react-router-dom'
 
@@ -13,7 +14,6 @@ import { useAuth } from '../context/useAuth'
 import {
   CenteredBox,
   CenteredBoxSpaced,
-  NewsListItem,
   PageCard,
   PageContainer,
   SectionContent,
@@ -137,12 +137,24 @@ const NewsPage: React.FC = () => {
               <List disablePadding>
                 {articles.map((a, i) => (
                   <React.Fragment key={`${a.url}_${i}`}>
-                    <NewsListItem component="a" href={a.url} target="_blank" rel="noopener noreferrer">
+                    <ListItemButton
+                      component="a"
+                      href={a.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{
+                        py: 2,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        gap: 0.5,
+                      }}
+                    >
                       <Typography variant="subtitle1">{a.title}</Typography>
                       <Typography variant="body2" color="text.secondary">
                         {a.source} — {new Date(a.publishedAt).toLocaleDateString()}
                       </Typography>
-                    </NewsListItem>
+                    </ListItemButton>
 
                     {i < articles.length - 1 ? <Divider component="li" /> : null}
                   </React.Fragment>

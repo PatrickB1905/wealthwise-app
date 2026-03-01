@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import MarketAPI from '../api/marketData'
 import { getSocket } from '../utils/socket'
@@ -8,12 +8,15 @@ export interface RemoteQuote {
   currentPrice: number
   dailyChangePercent: number
   logoUrl: string
+  updatedAt?: string
 }
 
 type PriceUpdate = Array<{
   symbol: string
-  currentPrice: number
-  dailyChangePercent: number
+  currentPrice?: number
+  dailyChangePercent?: number
+  logoUrl?: string
+  updatedAt?: string
 }>
 
 function normalizeSymbols(symbols: string[]): string[] {
@@ -21,6 +24,54 @@ function normalizeSymbols(symbols: string[]): string[] {
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean)
     .sort()
+}
+
+function isFiniteNumber(val: unknown): val is number {
+  return typeof val === 'number' && Number.isFinite(val)
+}
+
+function isIsoString(val: unknown): val is string {
+  return typeof val === 'string' && val.trim().length > 0 && !Number.isNaN(Date.parse(val))
+}
+
+function mergeQuoteUpdate(old: RemoteQuote, upd: PriceUpdate[number]): RemoteQuote {
+  const nextUpdatedAt = isIsoString(upd.updatedAt) ? upd.updatedAt : undefined
+
+  return {
+    ...old,
+    currentPrice: isFiniteNumber(upd.currentPrice) ? upd.currentPrice : old.currentPrice,
+    dailyChangePercent: isFiniteNumber(upd.dailyChangePercent)
+      ? upd.dailyChangePercent
+      : old.dailyChangePercent,
+    logoUrl: typeof upd.logoUrl === 'string' && upd.logoUrl.trim() ? upd.logoUrl : old.logoUrl,
+    updatedAt: nextUpdatedAt ?? old.updatedAt ?? new Date().toISOString(),
+  }
+}
+
+function buildPlaceholderFromCache(
+  qc: ReturnType<typeof useQueryClient>,
+  symbols: string[]
+): RemoteQuote[] | undefined {
+  if (symbols.length === 0) return undefined
+
+  const all = qc.getQueriesData<RemoteQuote[]>({ queryKey: ['quotes'] })
+  const bySym = new Map<string, RemoteQuote>()
+
+  for (const [, data] of all) {
+    if (!data) continue
+    for (const q of data) {
+      const sym = String(q.symbol).toUpperCase()
+      if (!bySym.has(sym)) bySym.set(sym, q)
+    }
+  }
+
+  const out: RemoteQuote[] = []
+  for (const s of symbols) {
+    const q = bySym.get(s)
+    if (q) out.push(q)
+  }
+
+  return out.length ? out : undefined
 }
 
 export function useQuotes(symbols: string[]) {
@@ -36,25 +87,33 @@ export function useQuotes(symbols: string[]) {
         (res) => res.data
       ),
     enabled: normalized.length > 0,
-    keepPreviousData: true,
-    staleTime: 30_000,
+
+    placeholderData: (prev) => prev ?? buildPlaceholderFromCache(queryClient, normalized),
+
+    staleTime: 15_000,
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: true,
     refetchOnWindowFocus: false,
   })
 
   const handler = useCallback(
     (updates: PriceUpdate) => {
-      const updateMap = new Map(updates.map((u) => [u.symbol, u]))
-      queryClient.setQueryData<RemoteQuote[]>(['quotes', symbolsParam], (old) => {
-        if (!old) return old
-        return old.map((q) => {
-          const upd = updateMap.get(q.symbol)
-          return upd
-            ? { ...q, currentPrice: upd.currentPrice, dailyChangePercent: upd.dailyChangePercent }
-            : q
+      if (!Array.isArray(updates) || updates.length === 0) return
+      const updateMap = new Map(updates.map((u) => [String(u.symbol).toUpperCase(), u]))
+
+      const all = queryClient.getQueriesData<RemoteQuote[]>({ queryKey: ['quotes'] })
+      for (const [key, old] of all) {
+        if (!old || old.length === 0) continue
+
+        const next = old.map((q) => {
+          const upd = updateMap.get(String(q.symbol).toUpperCase())
+          return upd ? mergeQuoteUpdate(q, upd) : q
         })
-      })
+
+        queryClient.setQueryData(key, next)
+      }
     },
-    [queryClient, symbolsParam]
+    [queryClient]
   )
 
   useEffect(() => {
@@ -62,11 +121,16 @@ export function useQuotes(symbols: string[]) {
 
     const socket = getSocket()
     socket.on('price:update', handler)
+    socket.on('price:snapshot', handler)
 
     return () => {
       socket.off('price:update', handler)
+      socket.off('price:snapshot', handler)
     }
   }, [handler, normalized.length])
 
   return result
 }
+
+/** @internal (used for unit tests) */
+export const __private__ = { mergeQuoteUpdate }

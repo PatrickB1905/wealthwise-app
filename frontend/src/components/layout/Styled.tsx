@@ -6,7 +6,7 @@ import CardContent from '@mui/material/CardContent'
 import CardHeader from '@mui/material/CardHeader'
 import Container from '@mui/material/Container'
 import Drawer from '@mui/material/Drawer'
-import ListItemButton from '@mui/material/ListItemButton'
+import ListItemButton, { type ListItemButtonProps } from '@mui/material/ListItemButton'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import Paper from '@mui/material/Paper'
 import TableCell from '@mui/material/TableCell'
@@ -14,7 +14,8 @@ import TableRow from '@mui/material/TableRow'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
-import { styled, type Theme } from '@mui/material/styles'
+import { alpha, styled, type Theme } from '@mui/material/styles'
+import Tooltip from '@mui/material/Tooltip'
 
 type Tone = 'positive' | 'negative' | 'neutral'
 
@@ -151,7 +152,10 @@ export const AuthContainer = styled(Container)(() => ({
 
 export const AuthPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
-  borderRadius: theme.shape.borderRadius * 2,
+  borderRadius:
+    (typeof theme.shape.borderRadius === 'number'
+      ? theme.shape.borderRadius
+      : Number.parseFloat(String(theme.shape.borderRadius))) * 2 || 16,
   backgroundColor: theme.palette.background.paper,
 }))
 
@@ -390,7 +394,7 @@ export const AnalyticsChartBox = styled(Box)(() => ({
 }))
 
 /** News */
-export const NewsListItem = styled(ListItemButton)(({ theme }) => ({
+export const NewsListItem = styled(ListItemButton)<ListItemButtonProps>(({ theme }) => ({
   paddingTop: theme.spacing(2),
   paddingBottom: theme.spacing(2),
   display: 'flex',
@@ -404,3 +408,28 @@ export const SpacedAlert = styled(Alert)(({ theme }) => ({
   marginBottom: theme.spacing(2),
   marginTop: theme.spacing(2),
 }))
+
+/** Quotes */
+export const QuoteMetaWrap = styled(Box)(({ theme }) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: theme.spacing(0.75),
+}))
+
+export const QuoteFreshDot = styled('span', {
+  shouldForwardProp: (prop) => prop !== 'state',
+})<{ state: 'fresh' | 'stale' | 'missing' }>(({ theme, state }) => {
+  const base = {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    display: 'inline-block',
+    boxShadow: `0 0 0 2px ${alpha(theme.palette.background.paper, 0.85)}`,
+  } as const
+
+  if (state === 'fresh') return { ...base, backgroundColor: theme.palette.success.main }
+  if (state === 'stale') return { ...base, backgroundColor: theme.palette.warning.main }
+  return { ...base, backgroundColor: theme.palette.action.disabled }
+})
+
+export const QuoteTooltip = styled(Tooltip)(() => ({}))

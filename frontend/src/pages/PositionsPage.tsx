@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import Avatar from '@mui/material/Avatar'
 import Button from '@mui/material/Button'
 import ButtonGroup from '@mui/material/ButtonGroup'
@@ -17,6 +17,7 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import Alert from '@mui/material/Alert'
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -38,6 +39,9 @@ import {
   SectionContent,
   SectionHeader,
   StyledContainer,
+  QuoteFreshDot,
+  QuoteMetaWrap,
+  QuoteTooltip,
 } from '../components/layout/Styled'
 
 type Position = {
@@ -54,14 +58,34 @@ type Quote = {
   symbol: string
   currentPrice: number
   logoUrl: string
+  updatedAt?: string
 }
 
 type Tone = 'positive' | 'negative' | 'neutral'
+
+const EMPTY_POSITIONS: Position[] = []
 
 function toneFromNumber(val: number): Tone {
   if (val > 0) return 'positive'
   if (val < 0) return 'negative'
   return 'neutral'
+}
+
+function isFiniteNumber(val: unknown): val is number {
+  return typeof val === 'number' && Number.isFinite(val)
+}
+
+function ageSecondsFromIso(iso?: string): number | null {
+  if (!iso) return null
+  const ms = Date.parse(iso)
+  if (Number.isNaN(ms)) return null
+  return Math.max(0, (Date.now() - ms) / 1000)
+}
+
+function formatAge(ageSec: number): string {
+  if (ageSec < 60) return `${Math.round(ageSec)}s ago`
+  const mins = Math.round(ageSec / 60)
+  return `${mins}m ago`
 }
 
 const PositionsPage: React.FC = () => {
@@ -84,16 +108,18 @@ const PositionsPage: React.FC = () => {
   const [newSellDate, setNewSellDate] = useState<Dayjs | null>(dayjs())
   const [tickerError, setTickerError] = useState('')
 
-  const {
-    data: positions = [],
-    isLoading: posLoading,
-    error: posError,
-  } = useQuery<Position[], Error>({
+  const positionsQuery = useQuery<Position[], Error>({
     queryKey: ['positions', tab],
     queryFn: () => API.get(`/positions?status=${tab}`).then((r) => r.data as Position[]),
-    keepPreviousData: true,
+
+    placeholderData: (prev) => prev ?? EMPTY_POSITIONS,
+
     refetchOnWindowFocus: false,
   })
+
+  const positions = positionsQuery.data ?? EMPTY_POSITIONS
+  const posLoading = positionsQuery.isLoading
+  const posError = positionsQuery.error
 
   const tickers = useMemo(() => positions.map((p) => p.ticker), [positions])
   const { data: quotesArray = [], isLoading: quotesLoading } = useQuotes(tickers)
@@ -101,7 +127,7 @@ const PositionsPage: React.FC = () => {
   const quotesMap = useMemo<Record<string, Quote>>(() => {
     const m: Record<string, Quote> = {}
     quotesArray.forEach((q) => {
-      m[q.symbol] = q
+      m[String(q.symbol).toUpperCase()] = q
     })
     return m
   }, [quotesArray])
@@ -209,29 +235,63 @@ const PositionsPage: React.FC = () => {
     deletePosition.mutate(selected.id)
   }
 
-  const { totalInvested, totalProfit, totalProfitPct } = useMemo(() => {
+  const pricing = useMemo(() => {
     let invested = 0
-    let profit = 0
+    let profitKnown = 0
+    let missingQuotes = 0
 
-    positions.forEach((p) => {
+    for (const p of positions) {
       const cost = p.buyPrice * p.quantity
-      const price =
-        tab === 'open'
-          ? quotesMap[p.ticker]?.currentPrice ?? cost / p.quantity
-          : p.sellPrice ?? p.buyPrice
       invested += cost
-      profit += price * p.quantity - cost
-    })
+
+      if (tab === 'closed') {
+        const price = isFiniteNumber(p.sellPrice) ? p.sellPrice : p.buyPrice
+        profitKnown += price * p.quantity - cost
+        continue
+      }
+
+      const q = quotesMap[String(p.ticker).toUpperCase()]
+      if (!q || !isFiniteNumber(q.currentPrice)) {
+        missingQuotes += 1
+        continue
+      }
+      profitKnown += q.currentPrice * p.quantity - cost
+    }
+
+    const profitPctKnown = invested ? (profitKnown / invested) * 100 : 0
 
     return {
       totalInvested: invested,
-      totalProfit: profit,
-      totalProfitPct: invested ? (profit / invested) * 100 : 0,
+      totalProfitKnown: profitKnown,
+      totalProfitPctKnown: profitPctKnown,
+      missingQuotes,
     }
   }, [positions, quotesMap, tab])
 
-  const totalsProfitTone = toneFromNumber(totalProfit)
-  const totalsPctTone = toneFromNumber(totalProfitPct)
+  const totalsProfitTone = toneFromNumber(pricing.totalProfitKnown)
+  const totalsPctTone = toneFromNumber(pricing.totalProfitPctKnown)
+
+  const [showQuoteAlert, setShowQuoteAlert] = useState(false)
+
+  useEffect(() => {
+    if (tab !== 'open') {
+      setShowQuoteAlert(false)
+      return
+    }
+
+    if (quotesLoading) {
+      setShowQuoteAlert(false)
+      return
+    }
+
+    if (pricing.missingQuotes <= 0) {
+      setShowQuoteAlert(false)
+      return
+    }
+
+    const t = window.setTimeout(() => setShowQuoteAlert(true), 6000)
+    return () => window.clearTimeout(t)
+  }, [pricing.missingQuotes, quotesLoading, tab])
 
   return (
     <PageContainer>
@@ -263,16 +323,20 @@ const PositionsPage: React.FC = () => {
                 <Button variant={tab === 'open' ? 'contained' : 'outlined'} onClick={() => setTab('open')}>
                   Open
                 </Button>
-                <Button
-                  variant={tab === 'closed' ? 'contained' : 'outlined'}
-                  onClick={() => setTab('closed')}
-                >
+                <Button variant={tab === 'closed' ? 'contained' : 'outlined'} onClick={() => setTab('closed')}>
                   Closed
                 </Button>
               </ButtonGroup>
             </PositionsTabGroupWrap>
 
-            {posLoading || quotesLoading ? (
+            {tab === 'open' && showQuoteAlert && pricing.missingQuotes > 0 ? (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                We’re still fetching live quotes for {pricing.missingQuotes} position(s). Those rows will show “—” until
+                pricing is available.
+              </Alert>
+            ) : null}
+
+            {posLoading || (quotesLoading && tab === 'open') ? (
               <CenteredBox>
                 <CircularProgress />
               </CenteredBox>
@@ -301,53 +365,147 @@ const PositionsPage: React.FC = () => {
                   <TableBody>
                     {positions.map((pos) => {
                       const cost = pos.buyPrice * pos.quantity
-                      const price =
-                        tab === 'open'
-                          ? quotesMap[pos.ticker]?.currentPrice ?? cost / pos.quantity
-                          : pos.sellPrice ?? pos.buyPrice
-                      const profit = price * pos.quantity - cost
-                      const pct = cost ? (profit / cost) * 100 : 0
+
+                      if (tab === 'closed') {
+                        const price = isFiniteNumber(pos.sellPrice) ? pos.sellPrice : pos.buyPrice
+                        const profit = price * pos.quantity - cost
+                        const pct = cost ? (profit / cost) * 100 : 0
+
+                        return (
+                          <TableRow key={pos.id}>
+                            <TableCell>
+                              <TickerCell>
+                                <TickerLogo>
+                                  <Avatar src={quotesMap[pos.ticker]?.logoUrl} alt={pos.ticker} />
+                                </TickerLogo>
+                                {pos.ticker}
+                              </TickerCell>
+                            </TableCell>
+
+                            <TableCell align="right">${pos.buyPrice.toFixed(2)}</TableCell>
+                            <TableCell align="right">{pos.quantity}</TableCell>
+                            <TableCell align="right">${price.toFixed(2)}</TableCell>
+                            <TableCell align="right">${cost.toFixed(2)}</TableCell>
+
+                            <ProfitCell align="right" tone={toneFromNumber(pct)}>
+                              {pct.toFixed(2)}%
+                            </ProfitCell>
+
+                            <ProfitCell align="right" tone={toneFromNumber(profit)}>
+                              ${profit.toFixed(2)}
+                            </ProfitCell>
+
+                            <TableCell align="center">
+                              <PositionsActions>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => {
+                                    setSelected(pos)
+                                    setNewQuantity(String(pos.quantity))
+                                    setNewBuyPrice(String(pos.buyPrice))
+                                    setNewBuyDate(dayjs(pos.buyDate))
+                                    if (pos.sellDate) setNewSellDate(dayjs(pos.sellDate))
+                                    setEditOpen(true)
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="error"
+                                  onClick={() => {
+                                    setSelected(pos)
+                                    setDeleteOpen(true)
+                                  }}
+                                >
+                                  Delete
+                                </Button>
+                              </PositionsActions>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      }
+
+                      const q = quotesMap[String(pos.ticker).toUpperCase()]
+                      const price = q && isFiniteNumber(q.currentPrice) ? q.currentPrice : null
+
+                      const profit = price != null ? price * pos.quantity - cost : null
+                      const pct = profit != null && cost ? (profit / cost) * 100 : null
 
                       return (
                         <TableRow key={pos.id}>
                           <TableCell>
                             <TickerCell>
                               <TickerLogo>
-                                <Avatar src={quotesMap[pos.ticker]?.logoUrl} alt={pos.ticker} />
+                                <Avatar src={q?.logoUrl} alt={pos.ticker} />
                               </TickerLogo>
-                              {pos.ticker}
+
+                              <QuoteMetaWrap>
+                                {pos.ticker}
+
+                                {(() => {
+                                  const ageSec = ageSecondsFromIso(q?.updatedAt)
+                                  const hasPrice = q && isFiniteNumber(q.currentPrice)
+                                  const staleThresholdSec = 75
+
+                                  const state: 'fresh' | 'stale' | 'missing' =
+                                    !hasPrice
+                                      ? 'missing'
+                                      : ageSec != null && ageSec > staleThresholdSec
+                                        ? 'stale'
+                                        : 'fresh'
+
+                                  const tip =
+                                    state === 'missing'
+                                      ? 'Live price not available yet'
+                                      : ageSec == null
+                                        ? 'Live price available'
+                                        : `Updated ${formatAge(ageSec)}`
+
+                                  return (
+                                    <QuoteTooltip title={tip} arrow placement="top">
+                                      <span>
+                                        <QuoteFreshDot state={state} />
+                                      </span>
+                                    </QuoteTooltip>
+                                  )
+                                })()}
+                              </QuoteMetaWrap>
                             </TickerCell>
                           </TableCell>
 
                           <TableCell align="right">${pos.buyPrice.toFixed(2)}</TableCell>
                           <TableCell align="right">{pos.quantity}</TableCell>
-                          <TableCell align="right">${price.toFixed(2)}</TableCell>
+
+                          <TableCell align="right">{price != null ? `$${price.toFixed(2)}` : '—'}</TableCell>
+
                           <TableCell align="right">${cost.toFixed(2)}</TableCell>
 
-                          <ProfitCell align="right" tone={toneFromNumber(pct)}>
-                            {pct.toFixed(2)}%
+                          <ProfitCell align="right" tone={toneFromNumber(pct ?? 0)}>
+                            {pct != null ? `${pct.toFixed(2)}%` : '—'}
                           </ProfitCell>
 
-                          <ProfitCell align="right" tone={toneFromNumber(profit)}>
-                            ${profit.toFixed(2)}
+                          <ProfitCell align="right" tone={toneFromNumber(profit ?? 0)}>
+                            {profit != null ? `$${profit.toFixed(2)}` : '—'}
                           </ProfitCell>
 
                           <TableCell align="center">
                             <PositionsActions>
-                              {tab === 'open' ? (
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  onClick={() => {
-                                    setSelected(pos)
-                                    setNewSellPrice('')
-                                    setNewSellDate(dayjs())
-                                    setCloseOpen(true)
-                                  }}
-                                >
-                                  Close
-                                </Button>
-                              ) : null}
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() => {
+                                  setSelected(pos)
+                                  setNewSellPrice('')
+                                  setNewSellDate(dayjs())
+                                  setCloseOpen(true)
+                                }}
+                              >
+                                Close
+                              </Button>
 
                               <Button
                                 size="small"
@@ -357,7 +515,6 @@ const PositionsPage: React.FC = () => {
                                   setNewQuantity(String(pos.quantity))
                                   setNewBuyPrice(String(pos.buyPrice))
                                   setNewBuyDate(dayjs(pos.buyDate))
-                                  if (pos.sellDate) setNewSellDate(dayjs(pos.sellDate))
                                   setEditOpen(true)
                                 }}
                               >
@@ -391,15 +548,15 @@ const PositionsPage: React.FC = () => {
                       <TableCell />
                       <TableCell />
                       <TableCell align="right">
-                        <strong>${totalInvested.toFixed(2)}</strong>
+                        <strong>${pricing.totalInvested.toFixed(2)}</strong>
                       </TableCell>
 
                       <ProfitCell align="right" tone={totalsPctTone}>
-                        <strong>{totalProfitPct.toFixed(2)}%</strong>
+                        <strong>{pricing.totalProfitPctKnown.toFixed(2)}%</strong>
                       </ProfitCell>
 
                       <ProfitCell align="right" tone={totalsProfitTone}>
-                        <strong>${totalProfit.toFixed(2)}</strong>
+                        <strong>${pricing.totalProfitKnown.toFixed(2)}</strong>
                       </ProfitCell>
 
                       <TableCell />
@@ -560,12 +717,7 @@ const PositionsPage: React.FC = () => {
 
         <DialogActions>
           <Button onClick={() => setDeleteOpen(false)}>Cancel</Button>
-          <Button
-            color="error"
-            onClick={onDeleteConfirm}
-            disabled={deletePosition.isPending}
-            variant="contained"
-          >
+          <Button color="error" onClick={onDeleteConfirm} disabled={deletePosition.isPending} variant="contained">
             {deletePosition.isPending ? 'Deleting…' : 'Delete'}
           </Button>
         </DialogActions>

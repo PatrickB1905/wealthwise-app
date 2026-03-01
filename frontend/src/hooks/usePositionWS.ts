@@ -15,14 +15,16 @@ export function usePositionWS(): void {
   useEffect(() => {
     const socket = getSocket()
 
-    const invalidatePositions = () => {
+    const onPositionChanged = () => {
       qc.invalidateQueries({ queryKey: ['positions'] })
+      qc.invalidateQueries({ queryKey: ['quotes'] })
+      qc.invalidateQueries({ queryKey: ['analytics'] })
     }
 
-    POSITION_EVENTS.forEach((evt) => socket.on(evt, invalidatePositions))
+    POSITION_EVENTS.forEach((evt) => socket.on(evt, onPositionChanged))
 
     return () => {
-      POSITION_EVENTS.forEach((evt) => socket.off(evt, invalidatePositions))
+      POSITION_EVENTS.forEach((evt) => socket.off(evt, onPositionChanged))
     }
   }, [qc])
 }

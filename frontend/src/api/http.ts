@@ -56,10 +56,32 @@ export function createHttpClient(baseURL: string): AxiosInstance {
   return client
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
 export function getErrorMessage(err: unknown, fallback: string): string {
   if (axios.isAxiosError(err)) {
     const msg = (err.response?.data as { error?: string } | undefined)?.error
     return msg ?? fallback
   }
+
+  if (isObject(err)) {
+    const response = err.response
+    if (isObject(response)) {
+      const data = response.data
+      if (isObject(data)) {
+        const maybeError = data.error
+        if (typeof maybeError === 'string' && maybeError.trim()) return maybeError
+      }
+    }
+  }
+
   return fallback
+}
+
+export function __resetUnauthorizedForTests(): void {
+  unauthorizedEmitted = false
+  if (unauthorizedTimer) window.clearTimeout(unauthorizedTimer)
+  unauthorizedTimer = null
 }
