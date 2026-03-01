@@ -8,11 +8,19 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.pool import StaticPool
 
 import app.api.routes as routes_mod
 import app.core.security as security_mod
 from app.core.config import Settings
 from app.db.engine import get_session
+from app.db.models import Base
 
 
 def _normalize_status(status: str) -> str:
@@ -270,6 +278,27 @@ class FakePositionsRepository:
             if p.sellDate is None:
                 by_user.setdefault(p.userId, []).append(p.ticker)
         return by_user
+
+
+@pytest.fixture(scope="session")
+def async_engine() -> AsyncEngine:
+    return create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        poolclass=StaticPool,
+        connect_args={"check_same_thread": False},
+    )
+
+
+@pytest.fixture()
+async def async_session(async_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
+    async with async_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+
+    SessionLocal = async_sessionmaker(async_engine, expire_on_commit=False, class_=AsyncSession)
+
+    async with SessionLocal() as session:
+        yield session
 
 
 @pytest.fixture()

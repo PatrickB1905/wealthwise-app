@@ -38,6 +38,18 @@ class Settings(BaseSettings):
     price_poll_interval_seconds: int = Field(default=10, alias="PRICE_POLL_INTERVAL_SECONDS")
     max_symbols_per_user: int = Field(default=50, alias="MAX_SYMBOLS_PER_USER")
 
+    price_snapshot_max_age_seconds: int = Field(default=60, alias="PRICE_SNAPSHOT_MAX_AGE_SECONDS")
+
+    market_data_service_url: str = Field(
+        default="http://market-data:5000/api",
+        alias="MARKET_DATA_SERVICE_URL",
+    )
+
+    @field_validator("market_data_service_url")
+    @classmethod
+    def _strip_market_data_url(cls, v: str) -> str:
+        return v.strip().rstrip("/")
+
     @field_validator("frontend_origin")
     @classmethod
     def _strip_frontend_origin(cls, v: str) -> str:

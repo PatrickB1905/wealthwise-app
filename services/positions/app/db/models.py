@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -51,3 +51,22 @@ class Position(Base):
     sellDate: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="positions")
+
+
+class QuoteSnapshot(Base):
+
+    __tablename__ = "quote_snapshots"
+    __table_args__ = (UniqueConstraint("symbol", name="uq_quote_snapshots_symbol"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    symbol: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+
+    currentPrice: Mapped[float] = mapped_column(Float, nullable=False)
+    dailyChangePercent: Mapped[float] = mapped_column(Float, nullable=False)
+
+    logoUrl: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    updatedAt: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, index=True
+    )

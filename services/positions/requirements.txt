@@ -11,3 +11,4 @@ psycopg[binary]
 
 passlib[argon2]
 argon2-cffi
+aiosqlite>=0.20.0

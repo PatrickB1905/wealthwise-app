@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import logging
-from typing import cast
+from datetime import datetime, timezone
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,7 +31,9 @@ from app.core.security import (
 )
 from app.db.engine import get_session
 from app.repositories.positions import PositionsRepository
+from app.repositories.quote_snapshots import QuoteSnapshotsRepository
 from app.repositories.users import UsersRepository
+from app.services.market_data import fetch_quotes_from_market_data
 from app.services.realtime import Emitter
 
 log = logging.getLogger(__name__)
@@ -56,6 +60,10 @@ def _norm_email(email: str) -> str:
 @router.get("/api/health")
 async def health() -> dict[str, object]:
     return {"status": "OK"}
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
 
 @router.post("/api/auth/register", response_model=AuthRegisterResponse, status_code=201)
@@ -286,15 +294,18 @@ async def create_position(
     user_id: int = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session),
     emitter: Emitter = Depends(get_emitter),
+    settings: Settings = Depends(get_settings),
 ) -> PositionResponse:
     repo = PositionsRepository(session=session)
 
     if not payload.ticker.strip():
         raise HTTPException(status_code=400, detail="ticker, quantity and buyPrice are required")
 
+    ticker = payload.ticker.strip().upper()
+
     pos = await repo.create(
         user_id=user_id,
-        ticker=payload.ticker.strip().upper(),
+        ticker=ticker,
         quantity=float(payload.quantity),
         buy_price=float(payload.buyPrice),
         buy_date=payload.buyDate,
@@ -305,6 +316,51 @@ async def create_position(
         event="position:added",
         data=PositionResponse.from_model(pos).model_dump(),
     )
+
+    try:
+        quotes = await asyncio.to_thread(
+            fetch_quotes_from_market_data,
+            settings.market_data_service_url,
+            [ticker],
+        )
+        if quotes:
+            snaps = QuoteSnapshotsRepository(session=session)
+            await snaps.upsert_many(quotes)
+            await session.commit()
+
+            now_iso = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+
+            payload_out: list[dict[str, Any]] = []
+            for q in quotes:
+                if not isinstance(q, dict):
+                    continue
+                sym = str(q.get("symbol") or "").strip().upper()
+                if not sym:
+                    continue
+                payload_out.append(
+                    {
+                        "symbol": sym,
+                        "currentPrice": q.get("currentPrice"),
+                        "dailyChangePercent": q.get("dailyChangePercent"),
+                        "logoUrl": q.get("logoUrl") or "",
+                        "updatedAt": now_iso,
+                    }
+                )
+
+            if payload_out:
+                await emitter.emit(
+                    room=f"user_{user_id}",
+                    event="price:update",
+                    data=payload_out,
+                )
+    except Exception:
+        log.exception(
+            "quote prefetch failed for newly-created position ticker=%s user_id=%s",
+            ticker,
+            user_id,
+        )
+        await session.rollback()
+
     return PositionResponse.from_model(pos)
 
 

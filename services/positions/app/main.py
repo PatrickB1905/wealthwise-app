@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from threading import Lock
 from typing import Any, cast
 
@@ -17,10 +19,17 @@ from app.core.config import Settings
 from app.core.logging import configure_logging
 from app.db.engine import create_engine_and_sessionmaker
 from app.db.migrations import run_migrations, wait_for_db
+from app.repositories.positions import PositionsRepository
+from app.repositories.quote_snapshots import QuoteSnapshotsRepository
+from app.services.market_data import fetch_quotes_from_market_data
 from app.services.price_poller import PricePoller
 from app.services.realtime import SocketEmitter
 
 log = logging.getLogger("positions")
+
+
+def _utc_now_naive() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 @asynccontextmanager
@@ -39,8 +48,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     poller = PricePoller(
         sessionmaker=sessionmaker,
         emitter=cast(SocketEmitter, app.state.emitter),
-        poll_interval_seconds=settings.price_poll_interval_seconds,
-        max_symbols_per_user=settings.max_symbols_per_user,
+        settings=settings,
     )
     app.state.price_poller = poller
 
@@ -50,8 +58,98 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     @sio.event  # type: ignore[untyped-decorator]
     async def join(sid: str, user_id: int) -> None:
-        room = f"user_{int(user_id)}"
+        uid = int(user_id)
+        room = f"user_{uid}"
         await sio.enter_room(sid, room)
+
+        try:
+            async with sessionmaker() as session:
+                pos_repo = PositionsRepository(session=session)
+                by_user = await pos_repo.list_open_tickers_grouped_by_user()
+                tickers = by_user.get(uid, [])
+
+                symbols: list[str] = []
+                seen: set[str] = set()
+                for t in tickers:
+                    sym = str(t).strip().upper()
+                    if not sym or sym in seen:
+                        continue
+                    seen.add(sym)
+                    symbols.append(sym)
+                    if len(symbols) >= settings.max_symbols_per_user:
+                        break
+
+                if not symbols:
+                    return
+
+                snaps_repo = QuoteSnapshotsRepository(session=session)
+                snaps = await snaps_repo.get_many(symbols)
+
+                now = _utc_now_naive()
+                now_iso = now.isoformat()
+                max_age = max(1, int(settings.price_snapshot_max_age_seconds))
+
+                fresh_payload: list[dict[str, Any]] = []
+                stale_or_missing: list[str] = []
+
+                for sym in symbols:
+                    row = snaps.get(sym)
+                    if row is None:
+                        stale_or_missing.append(sym)
+                        continue
+
+                    age = (now - row.updatedAt).total_seconds()
+                    if age > max_age:
+                        stale_or_missing.append(sym)
+                        continue
+
+                    fresh_payload.append(
+                        {
+                            "symbol": row.symbol,
+                            "currentPrice": row.currentPrice,
+                            "dailyChangePercent": row.dailyChangePercent,
+                            "logoUrl": row.logoUrl,
+                            "updatedAt": row.updatedAt.isoformat(),
+                        }
+                    )
+
+                refreshed_payload: list[dict[str, Any]] = []
+                if stale_or_missing:
+                    refreshed = await asyncio.to_thread(
+                        fetch_quotes_from_market_data,
+                        settings.market_data_service_url,
+                        stale_or_missing,
+                    )
+                    if refreshed:
+                        await snaps_repo.upsert_many(refreshed)
+                        try:
+                            await session.commit()
+                        except Exception:
+                            await session.rollback()
+                            raise
+
+                        for q in refreshed:
+                            if not isinstance(q, dict):
+                                continue
+                            sym = str(q.get("symbol") or "").strip().upper()
+                            if not sym:
+                                continue
+                            refreshed_payload.append(
+                                {
+                                    "symbol": sym,
+                                    "currentPrice": q.get("currentPrice"),
+                                    "dailyChangePercent": q.get("dailyChangePercent"),
+                                    "logoUrl": q.get("logoUrl") or "",
+                                    "updatedAt": now_iso,
+                                }
+                            )
+
+                payload = fresh_payload + refreshed_payload
+                if payload:
+                    emitter = cast(SocketEmitter, app.state.emitter)
+                    await emitter.emit_to_sid(sid=sid, event="price:snapshot", data=payload)
+        except Exception:
+            log.exception("failed to send price snapshot on join (user_id=%s)", user_id)
 
     try:
         poller.start()
