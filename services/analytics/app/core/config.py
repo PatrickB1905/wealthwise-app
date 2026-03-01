@@ -37,8 +37,15 @@ class Settings(BaseSettings):
         validation_alias="FRONTEND_ORIGINS",
     )
 
+    jwt_secret: str = Field(default="change_me", validation_alias="JWT_SECRET")
+
     port: int = Field(default=7000, validation_alias="ANALYTICS_SERVICE_PORT")
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
+
+    analytics_cache_ttl_seconds: int = Field(
+        default=30, validation_alias="ANALYTICS_CACHE_TTL_SECONDS"
+    )
+    analytics_max_days: int = Field(default=730, validation_alias="ANALYTICS_MAX_DAYS")
 
     @property
     def frontend_origins(self) -> list[str]:
