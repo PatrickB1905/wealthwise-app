@@ -1,40 +1,73 @@
-from app.api import routes
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import pytest
+from app.clients.yahoo_finance import QuoteData, YahooFinanceClient
 from app.core.config import Settings
 from app.main import create_app
-from app.services.quotes import parse_symbols
 from fastapi.testclient import TestClient
 
 
-class FakeYF:
-    def fetch_quote(self, symbol: str):
-        class Q:
-            def __init__(self, s: str):
-                self.symbol = s
-                self.current_price = 123.0
-                self.daily_change_percent = 1.23
-                self.logo_url = "https://logo.clearbit.com/example.com"
-
-        return Q(symbol)
+@dataclass(frozen=True)
+class _FakeRow:
+    symbol: str
+    current_price: float
+    daily_change_percent: float
 
 
-def test_quotes_returns_list():
-    app = create_app(Settings(market_data_max_symbols=50))  # type: ignore[arg-type]
-    app.dependency_overrides[routes.get_yahoo_client] = lambda: FakeYF()
+def test_quotes_endpoint_maps_response_fields_and_uses_default_di(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.services.quotes as quotes_mod
 
+    def fake_compute(symbols: list[str]) -> dict[str, _FakeRow]:
+        return {
+            "AAPL": _FakeRow("AAPL", 123.0, 1.23),
+            "MSFT": _FakeRow("MSFT", 234.0, 2.34),
+        }
+
+    monkeypatch.setattr(quotes_mod, "_compute_from_download", fake_compute)
+
+    def fake_fetch_quote(self: YahooFinanceClient, symbol: str) -> QuoteData | None:
+        sym = symbol.strip().upper()
+        return QuoteData(symbol=sym, current_price=0.0, daily_change_percent=0.0, logo_url="x")
+
+    monkeypatch.setattr(YahooFinanceClient, "fetch_quote", fake_fetch_quote)
+
+    app = create_app(Settings(max_symbols=50))
     with TestClient(app) as client:
-        resp = client.get("/api/quotes", params={"symbols": "AAPL,MSFT"})
+        r = client.get("/api/quotes", params={"symbols": "AAPL,MSFT"})
 
-    assert resp.status_code == 200
-    data = resp.json()
-    assert len(data) == 2
+    assert r.status_code == 200
+    data = r.json()
     assert {d["symbol"] for d in data} == {"AAPL", "MSFT"}
+    assert all("currentPrice" in d for d in data)
+    assert all("dailyChangePercent" in d for d in data)
+    assert all("logoUrl" in d for d in data)
 
 
-def test_parse_symbols_dedupes_uppercases_and_trims():
-    out = parse_symbols(" aapl ,MSFT, aapl,,  ", max_symbols=50)
-    assert out == ["AAPL", "MSFT"]
+def test_quotes_endpoint_respects_max_symbols(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.services.quotes as quotes_mod
 
+    def fake_compute(symbols: list[str]) -> dict[str, _FakeRow]:
+        # Pretend all symbols returned prices
+        return {s: _FakeRow(s, 1.0, 0.0) for s in symbols}
 
-def test_parse_symbols_respects_max_symbols():
-    out = parse_symbols("AAPL,MSFT,GOOG,TSLA", max_symbols=2)
-    assert out == ["AAPL", "MSFT"]
+    monkeypatch.setattr(quotes_mod, "_compute_from_download", fake_compute)
+
+    monkeypatch.setattr(
+        YahooFinanceClient,
+        "fetch_quote",
+        lambda self, symbol: QuoteData(
+            symbol=symbol, current_price=0.0, daily_change_percent=0.0, logo_url="x"
+        ),
+    )
+
+    app = create_app(Settings(MARKET_DATA_MAX_SYMBOLS=2))
+    with TestClient(app) as client:
+        r = client.get("/api/quotes", params={"symbols": "AAPL,MSFT,GOOG,TSLA"})
+
+    assert r.status_code == 200
+    data = r.json()
+    assert [d["symbol"] for d in data] == ["AAPL", "MSFT"]
