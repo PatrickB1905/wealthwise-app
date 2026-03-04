@@ -1,22 +1,28 @@
 {
-  "extends": "./tsconfig.app.json",
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "module": "NodeNext",
+    "target": "ES2022",
+    "module": "ESNext",
     "moduleResolution": "NodeNext",
-    "verbatimModuleSyntax": false,
-
     "jsx": "react-jsx",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
 
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
 
-    "isolatedModules": true,
+    "types": ["jest", "node"],
+    "noEmit": true,
 
-    "outDir": "./node_modules/.tmp/ts-jest",
-    "rootDir": ".",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
 
-    "types": ["jest", "@testing-library/jest-dom", "node"]
+    "baseUrl": ".",
+    "paths": {
+      "@app/*": ["src/app/*"],
+      "@features/*": ["src/features/*"],
+      "@shared/*": ["src/shared/*"],
+      "@assets/*": ["src/assets/*"],
+      "@test/*": ["src/test/*"]
+    }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["src", "**/*.test.ts", "**/*.test.tsx"]
 }
