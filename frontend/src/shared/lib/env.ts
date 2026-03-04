@@ -3,21 +3,33 @@ type ViteEnvKey =
   | 'VITE_MARKET_DATA_API_URL'
   | 'VITE_ANALYTICS_API_URL'
   | 'VITE_NEWS_API_URL'
-  | 'VITE_POSITIONS_WS_URL'
+  | 'VITE_POSITIONS_WS_URL';
+
+type ViteEnvShape = Partial<Record<ViteEnvKey, string>> & { MODE?: string };
+
+declare global {
+  var __VITE_ENV__: ViteEnvShape | undefined;
+}
+
+function getEnvSource(): ViteEnvShape {
+  if (globalThis.__VITE_ENV__) return globalThis.__VITE_ENV__ as ViteEnvShape;
+
+  return process.env as unknown as ViteEnvShape;
+}
 
 function readViteEnv(name: ViteEnvKey): string | undefined {
-  const raw = import.meta.env[name]
+  const raw = getEnvSource()[name];
   if (typeof raw === 'string') {
-    const trimmed = raw.trim()
-    return trimmed.length ? trimmed : undefined
+    const trimmed = raw.trim();
+    return trimmed.length ? trimmed : undefined;
   }
-  return undefined
+  return undefined;
 }
 
 function requiredEnv(name: Exclude<ViteEnvKey, 'VITE_POSITIONS_WS_URL'>): string {
-  const value = readViteEnv(name)
+  const value = readViteEnv(name);
   if (!value) {
-    const mode = import.meta.env.MODE ?? 'unknown'
+    const mode = getEnvSource().MODE ?? process.env.NODE_ENV ?? 'unknown';
     throw new Error(
       [
         `Missing required env var: ${name}`,
@@ -25,10 +37,11 @@ function requiredEnv(name: Exclude<ViteEnvKey, 'VITE_POSITIONS_WS_URL'>): string
         'Fix:',
         '- For Docker: ensure docker-compose passes VITE_* build args to the frontend image.',
         '- For local dev: create frontend/.env.local with the required VITE_* vars.',
-      ].join('\n')
-    )
+        '- For Jest: ensure src/test/jestEnvSetup.ts sets globalThis.__VITE_ENV__ defaults.',
+      ].join('\n'),
+    );
   }
-  return value
+  return value;
 }
 
 export const ENV = {
@@ -37,9 +50,9 @@ export const ENV = {
   ANALYTICS_API_URL: requiredEnv('VITE_ANALYTICS_API_URL'),
   NEWS_API_URL: requiredEnv('VITE_NEWS_API_URL'),
   POSITIONS_WS_URL: readViteEnv('VITE_POSITIONS_WS_URL'),
-} as const
+} as const;
 
 export const STORAGE_KEYS = {
   TOKEN: 'ww_token',
   USER: 'ww_user',
-} as const
+} as const;
