@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 
 
@@ -27,7 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     - `settings=None` -> load from environment / .env
     - tests can pass Settings(...) directly for isolation
     """
-    settings = settings or Settings()
+    settings = settings or get_settings()
     configure_logging(settings.log_level)
 
     app = FastAPI(

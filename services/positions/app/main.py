@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from app.api.routes import router
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 from app.db.engine import create_engine_and_sessionmaker
 from app.db.migrations import run_migrations, wait_for_db
@@ -160,7 +160,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
-    s = settings or Settings()
+    s = settings or get_settings()
     configure_logging(s.log_level)
 
     app = FastAPI(
