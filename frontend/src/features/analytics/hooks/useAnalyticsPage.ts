@@ -7,11 +7,11 @@ import { useAuth } from '@features/auth';
 import { usePositionWS } from '@features/portfolio/hooks/usePositionWS';
 import {
   AREA_FILL_ID,
-  Benchmark,
   DEFAULT_BENCHMARK,
   DEFAULT_DAYS,
   DEFAULT_RANGE_MONTHS,
 } from '../constants';
+import type { Benchmark } from '../constants';
 import type {
   HistoryItem,
   Overview,
