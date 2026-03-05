@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 import yfinance as yf
 
 from app.clients.yahoo_finance import QuoteData, YahooFinanceClient
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 def parse_symbols(symbols_csv: str, *, max_symbols: int) -> list[str]:
@@ -58,6 +62,84 @@ def _cache_get(sym: str, *, now: float) -> QuoteData | None:
     return q
 
 
+def _as_closes_list(series_like: Any) -> list[float]:
+    try:
+        closes = series_like.dropna().tolist()
+        return [float(x) for x in closes]
+    except Exception:
+        return []
+
+
+def _extract_close_series(df: Any, sym: str) -> pd.Series[Any] | None:
+    try:
+        cols = getattr(df, "columns", None)
+        if cols is not None and getattr(cols, "nlevels", 1) == 1:
+            if "Close" in cols:
+                return df["Close"]
+    except Exception:
+        pass
+
+    try:
+        cols = getattr(df, "columns", None)
+    except Exception:
+        return None
+
+    if cols is None:
+        return None
+
+    nlevels = getattr(cols, "nlevels", 1)
+
+    try:
+        if len(cols) == 0 or nlevels <= 1:
+            return None
+    except Exception:
+        return None
+
+    def _pick(block: Any) -> pd.Series[Any] | None:
+        try:
+            if not hasattr(block, "columns"):
+                return block
+
+            if sym in block.columns:
+                return block[sym]
+
+            if getattr(block, "shape", (0, 0))[1] == 1:
+                return block.iloc[:, 0]
+        except Exception:
+            return None
+        return None
+
+    try:
+        block = df.xs("Close", axis=1, level=1)
+        picked = _pick(block)
+        if picked is not None:
+            return picked
+    except Exception:
+        pass
+
+    try:
+        block = df.xs("Close", axis=1, level=0)
+        picked = _pick(block)
+        if picked is not None:
+            return picked
+    except Exception:
+        pass
+
+    try:
+        if (sym, "Close") in cols:
+            return df[(sym, "Close")]
+    except Exception:
+        pass
+
+    try:
+        if ("Close", sym) in cols:
+            return df[("Close", sym)]
+    except Exception:
+        pass
+
+    return None
+
+
 def _compute_from_download(symbols: list[str]) -> dict[str, _QuoteRow]:
     if not symbols:
         return {}
@@ -74,39 +156,24 @@ def _compute_from_download(symbols: list[str]) -> dict[str, _QuoteRow]:
 
     out: dict[str, _QuoteRow] = {}
 
-    if len(symbols) == 1:
-        sym = symbols[0]
-        try:
-            closes = df["Close"].dropna().tolist()
-            if len(closes) < 2:
-                return {}
-            prev_close = float(closes[-2])
-            cur_close = float(closes[-1])
-            pct = ((cur_close - prev_close) / prev_close) * 100.0 if prev_close else 0.0
-            out[sym] = _QuoteRow(
-                symbol=sym,
-                current_price=cur_close,
-                daily_change_percent=round(pct, 2),
-            )
-        except Exception:
-            return {}
-        return out
-
     for sym in symbols:
-        try:
-            closes = df[sym]["Close"].dropna().tolist()
-            if len(closes) < 2:
-                continue
-            prev_close = float(closes[-2])
-            cur_close = float(closes[-1])
-            pct = ((cur_close - prev_close) / prev_close) * 100.0 if prev_close else 0.0
-            out[sym] = _QuoteRow(
-                symbol=sym,
-                current_price=cur_close,
-                daily_change_percent=round(pct, 2),
-            )
-        except Exception:
+        series = _extract_close_series(df, sym)
+        if series is None:
             continue
+
+        closes = _as_closes_list(series)
+        if len(closes) < 2:
+            continue
+
+        prev_close = float(closes[-2])
+        cur_close = float(closes[-1])
+        pct = ((cur_close - prev_close) / prev_close) * 100.0 if prev_close else 0.0
+
+        out[sym] = _QuoteRow(
+            symbol=sym,
+            current_price=cur_close,
+            daily_change_percent=round(pct, 2),
+        )
 
     return out
 
