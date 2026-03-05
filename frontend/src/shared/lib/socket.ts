@@ -28,16 +28,7 @@ function resolveSocketUrl(): string {
   const wsUrl = ENV.POSITIONS_WS_URL?.trim();
   if (wsUrl) return wsUrl;
 
-  const apiUrl = ENV.POSITIONS_API_URL.trim();
-  try {
-    const u = new URL(apiUrl);
-    u.pathname = '';
-    u.search = '';
-    u.hash = '';
-    return u.toString().replace(/\/$/, '');
-  } catch {
-    return apiUrl.replace(/\/+$/, '');
-  }
+  return window.location.origin;
 }
 
 export function getSocket(): Socket {

@@ -53,6 +53,15 @@ function injectViteEnvPluginBuild(): Plugin {
   }
 }
 
+function readEnv(name: string, fallback: string): string {
+  const raw = process.env[name]
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim()
+    if (trimmed.length) return trimmed
+  }
+  return fallback
+}
+
 export default defineConfig({
   plugins: [react(), injectViteEnvPlugin(), injectViteEnvPluginBuild()],
 
@@ -68,6 +77,46 @@ export default defineConfig({
   server: {
     port: devPort,
     strictPort: true,
+
+    /**
+     * Development API gateway (Vite dev server)
+     *
+     * Purpose:
+     * - Allows the frontend to run without Docker
+     * - Routes /api/* requests to backend services
+     *
+     * Configuration:
+     * - Targets controlled by VITE_DEV_*_PROXY_TARGET env variables
+     * - Defaults match docker-compose exposed ports
+     */
+    proxy: {
+      '/api/positions': {
+        target: readEnv('VITE_DEV_POSITIONS_PROXY_TARGET', 'http://localhost:4000'),
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api\/positions/, '/api'),
+      },
+      '/api/market-data': {
+        target: readEnv('VITE_DEV_MARKET_DATA_PROXY_TARGET', 'http://localhost:5000'),
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api\/market-data/, '/api'),
+      },
+      '/api/analytics': {
+        target: readEnv('VITE_DEV_ANALYTICS_PROXY_TARGET', 'http://localhost:7000'),
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api\/analytics/, '/api'),
+      },
+      '/api/news': {
+        target: readEnv('VITE_DEV_NEWS_PROXY_TARGET', 'http://localhost:6500'),
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api\/news/, '/api'),
+      },
+
+      '/socket.io': {
+        target: readEnv('VITE_DEV_POSITIONS_PROXY_TARGET', 'http://localhost:4000'),
+        ws: true,
+        changeOrigin: true,
+      },
+    },
   },
 
   build: {
