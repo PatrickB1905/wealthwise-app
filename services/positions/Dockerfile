@@ -1,18 +1,19 @@
-FROM node:18-alpine AS builder
-WORKDIR /app
-COPY package.json yarn.lock tsconfig.json ./
-COPY prisma ./prisma
-RUN yarn install --frozen-lockfile
-RUN npx prisma generate
-COPY src ./src
-RUN yarn build
+FROM python:3.10-slim
 
-FROM node:18-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY prisma/schema.prisma ./prisma/schema.prisma
-COPY .env .
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONFAULTHANDLER=1
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir -r requirements.txt
+
+COPY app ./app
+COPY main.py ./main.py
+
+COPY alembic.ini ./alembic.ini
+COPY migrations ./migrations
+
 EXPOSE 4000
-CMD ["node", "dist/index.js"]
+CMD ["uvicorn", "main:sio_app", "--host", "0.0.0.0", "--port", "4000"]

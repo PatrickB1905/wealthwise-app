@@ -7,8 +7,27 @@
     "services/*"
   ],
   "scripts": {
-    "bootstrap": "yarn install",
-    "build": "yarn workspaces run build"
+    "bootstrap": "yarn install --immutable || yarn install",
+    "build": "yarn workspaces run build",
+    "lint": "yarn workspace frontend lint",
+    "format": "yarn workspace frontend format",
+    "frontend:dev": "yarn workspace frontend dev",
+    "frontend:build": "yarn workspace frontend build",
+    "typecheck": "yarn workspace frontend typecheck",
+    "test": "yarn workspace frontend test",
+    "test:coverage": "yarn workspace frontend test:coverage",
+	"verify": "yarn lint && yarn typecheck && yarn test"
+  },
+  "volta": {
+    "node": "20.11.1",
+    "yarn": "1.22.22"
+  },
+  "resolutions": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.0",
+    "@emotion/cache": "11.14.0"
   },
   "devDependencies": {
     "concurrently": "^8.0.0"

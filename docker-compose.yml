@@ -1,0 +1,116 @@
+services:
+  db:
+    image: postgres:15
+    container_name: wealthwise-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-wealthwise}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - wealthwise_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  positions:
+    build:
+      context: ./services/positions
+      dockerfile: Dockerfile
+    container_name: wealthwise-positions
+    env_file:
+      - ./.env
+    environment:
+      LOAD_DOTENV: "0"
+    ports:
+      - "${POSITIONS_SERVICE_PORT:-4000}:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/api/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  market-data:
+    build:
+      context: ./services/market-data
+      dockerfile: Dockerfile
+    container_name: wealthwise-market-data
+    environment:
+      LOAD_DOTENV: "0"
+    env_file:
+      - ./.env
+    ports:
+      - "${MARKET_DATA_SERVICE_PORT:-5000}:5000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  analytics:
+    build:
+      context: ./services/analytics
+      dockerfile: Dockerfile
+    container_name: wealthwise-analytics
+    env_file:
+      - ./.env
+    environment:
+      LOAD_DOTENV: "0"
+    ports:
+      - "${ANALYTICS_SERVICE_PORT:-7000}:7000"
+    depends_on:
+      market-data:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:7000/api/ready')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  news:
+    build:
+      context: ./services/news
+      dockerfile: Dockerfile
+    container_name: wealthwise-news
+    environment:
+      LOAD_DOTENV: "0"
+    env_file:
+      - ./.env
+    ports:
+      - "${NEWS_SERVICE_PORT:-6500}:6500"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:6500/api/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_POSITIONS_API_URL: "http://localhost:${POSITIONS_SERVICE_PORT:-4000}/api"
+        VITE_MARKET_DATA_API_URL: "http://localhost:${MARKET_DATA_SERVICE_PORT:-5000}/api"
+        VITE_ANALYTICS_API_URL: "http://localhost:${ANALYTICS_SERVICE_PORT:-7000}/api"
+        VITE_NEWS_API_URL: "http://localhost:${NEWS_SERVICE_PORT:-6500}/api"
+    container_name: wealthwise-frontend
+    ports:
+      - "${FRONTEND_HOST_PORT:-5173}:80"
+    depends_on:
+      positions:
+        condition: service_healthy
+      market-data:
+        condition: service_healthy
+      analytics:
+        condition: service_healthy
+      news:
+        condition: service_healthy
+
+volumes:
+  wealthwise_db:

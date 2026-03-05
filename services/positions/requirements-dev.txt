@@ -1,0 +1,9 @@
+alembic
+pytest
+pytest-cov
+pytest-asyncio
+httpx
+mypy
+ruff
+black
+types-PyJWT
