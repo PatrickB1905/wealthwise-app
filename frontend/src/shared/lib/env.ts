@@ -13,7 +13,6 @@ declare global {
 
 function getEnvSource(): ViteEnvShape {
   if (globalThis.__VITE_ENV__) return globalThis.__VITE_ENV__ as ViteEnvShape;
-
   return process.env as unknown as ViteEnvShape;
 }
 
@@ -26,29 +25,15 @@ function readViteEnv(name: ViteEnvKey): string | undefined {
   return undefined;
 }
 
-function requiredEnv(name: Exclude<ViteEnvKey, 'VITE_POSITIONS_WS_URL'>): string {
-  const value = readViteEnv(name);
-  if (!value) {
-    const mode = getEnvSource().MODE ?? process.env.NODE_ENV ?? 'unknown';
-    throw new Error(
-      [
-        `Missing required env var: ${name}`,
-        `Mode: ${mode}`,
-        'Fix:',
-        '- For Docker: ensure docker-compose passes VITE_* build args to the frontend image.',
-        '- For local dev: create frontend/.env.local with the required VITE_* vars.',
-        '- For Jest: ensure src/test/jestEnvSetup.ts sets globalThis.__VITE_ENV__ defaults.',
-      ].join('\n'),
-    );
-  }
-  return value;
+function withDefault(value: string | undefined, fallback: string): string {
+  return value?.trim() ? value.trim() : fallback;
 }
 
 export const ENV = {
-  POSITIONS_API_URL: requiredEnv('VITE_POSITIONS_API_URL'),
-  MARKET_DATA_API_URL: requiredEnv('VITE_MARKET_DATA_API_URL'),
-  ANALYTICS_API_URL: requiredEnv('VITE_ANALYTICS_API_URL'),
-  NEWS_API_URL: requiredEnv('VITE_NEWS_API_URL'),
+  POSITIONS_API_URL: withDefault(readViteEnv('VITE_POSITIONS_API_URL'), '/api/positions'),
+  MARKET_DATA_API_URL: withDefault(readViteEnv('VITE_MARKET_DATA_API_URL'), '/api/market-data'),
+  ANALYTICS_API_URL: withDefault(readViteEnv('VITE_ANALYTICS_API_URL'), '/api/analytics'),
+  NEWS_API_URL: withDefault(readViteEnv('VITE_NEWS_API_URL'), '/api/news'),
   POSITIONS_WS_URL: readViteEnv('VITE_POSITIONS_WS_URL'),
 } as const;
 
