@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 
 import MarketAPI from '../api/marketDataClient';
 import { getSocket } from '@shared/lib/socket';
@@ -35,6 +35,12 @@ function isIsoString(val: unknown): val is string {
   return typeof val === 'string' && val.trim().length > 0 && !Number.isNaN(Date.parse(val));
 }
 
+function safeSymbol(val: unknown): string | null {
+  if (typeof val !== 'string') return null;
+  const sym = val.trim().toUpperCase();
+  return sym.length ? sym : null;
+}
+
 function mergeQuoteUpdate(old: RemoteQuote, upd: PriceUpdate[number]): RemoteQuote {
   const nextUpdatedAt = isIsoString(upd.updatedAt) ? upd.updatedAt : undefined;
 
@@ -49,30 +55,133 @@ function mergeQuoteUpdate(old: RemoteQuote, upd: PriceUpdate[number]): RemoteQuo
   };
 }
 
-function buildPlaceholderFromCache(
+const QUOTES_BY_SYMBOL_KEY = ['quotesBySymbol'] as const;
+
+type QuotesBySymbol = Record<string, RemoteQuote>;
+
+function getQuotesBySymbol(qc: ReturnType<typeof useQueryClient>): QuotesBySymbol {
+  return (qc.getQueryData<QuotesBySymbol>(QUOTES_BY_SYMBOL_KEY) ?? {}) as QuotesBySymbol;
+}
+
+function setQuotesBySymbol(qc: ReturnType<typeof useQueryClient>, next: QuotesBySymbol): void {
+  qc.setQueryData(QUOTES_BY_SYMBOL_KEY, next);
+}
+
+function quotesEqual(a: RemoteQuote, b: RemoteQuote): boolean {
+  return (
+    a.symbol === b.symbol &&
+    a.currentPrice === b.currentPrice &&
+    a.dailyChangePercent === b.dailyChangePercent &&
+    a.logoUrl === b.logoUrl &&
+    (a.updatedAt ?? '') === (b.updatedAt ?? '')
+  );
+}
+
+function upsertQuotesIntoCache(
   qc: ReturnType<typeof useQueryClient>,
-  symbols: string[],
-): RemoteQuote[] | undefined {
-  if (symbols.length === 0) return undefined;
+  incoming: Array<Partial<RemoteQuote> & { symbol: string }>,
+): void {
+  if (!incoming.length) return;
 
-  const all = qc.getQueriesData<RemoteQuote[]>({ queryKey: ['quotes'] });
-  const bySym = new Map<string, RemoteQuote>();
+  const prev = getQuotesBySymbol(qc);
+  let changed = false;
 
-  for (const [, data] of all) {
-    if (!data) continue;
-    for (const q of data) {
-      const sym = String(q.symbol).toUpperCase();
-      if (!bySym.has(sym)) bySym.set(sym, q);
+  const next: QuotesBySymbol = { ...prev };
+
+  for (const raw of incoming) {
+    const sym = safeSymbol(raw.symbol);
+    if (!sym) continue;
+
+    const existing = next[sym];
+
+    if (!existing) {
+      if (!isFiniteNumber(raw.currentPrice)) continue;
+
+      next[sym] = {
+        symbol: sym,
+        currentPrice: raw.currentPrice,
+        dailyChangePercent: isFiniteNumber(raw.dailyChangePercent) ? raw.dailyChangePercent : 0,
+        logoUrl: typeof raw.logoUrl === 'string' ? raw.logoUrl : '',
+        updatedAt: isIsoString(raw.updatedAt) ? raw.updatedAt : new Date().toISOString(),
+      };
+      changed = true;
+      continue;
+    }
+
+    const merged: RemoteQuote = {
+      ...existing,
+      symbol: sym,
+      currentPrice: isFiniteNumber(raw.currentPrice) ? raw.currentPrice : existing.currentPrice,
+      dailyChangePercent: isFiniteNumber(raw.dailyChangePercent)
+        ? raw.dailyChangePercent
+        : existing.dailyChangePercent,
+      logoUrl:
+        typeof raw.logoUrl === 'string' && raw.logoUrl.trim() ? raw.logoUrl : existing.logoUrl,
+      updatedAt: isIsoString(raw.updatedAt) ? raw.updatedAt : existing.updatedAt,
+    };
+
+    if (!quotesEqual(existing, merged)) {
+      next[sym] = merged;
+      changed = true;
     }
   }
 
+  if (changed) setQuotesBySymbol(qc, next);
+}
+
+function buildQuotesForSymbols(
+  qc: ReturnType<typeof useQueryClient>,
+  symbols: string[],
+): RemoteQuote[] {
+  const cache = getQuotesBySymbol(qc);
   const out: RemoteQuote[] = [];
+
   for (const s of symbols) {
-    const q = bySym.get(s);
+    const q = cache[s];
     if (q) out.push(q);
   }
 
-  return out.length ? out : undefined;
+  return out;
+}
+
+function rebuildAllQuotesQueriesFromCache(qc: ReturnType<typeof useQueryClient>): void {
+  const all = qc.getQueriesData<RemoteQuote[]>({ queryKey: ['quotes'] });
+
+  for (const [key] of all) {
+    const k = key as QueryKey;
+    const param = typeof k[1] === 'string' ? k[1] : '';
+    const symbols = normalizeSymbols(param.split(',').filter(Boolean));
+    const next = buildQuotesForSymbols(qc, symbols);
+
+    if (next.length) qc.setQueryData(key, next);
+  }
+}
+
+type QuoteApiRow = Record<string, unknown>;
+
+function parseQuoteRow(x: unknown): (Partial<RemoteQuote> & { symbol: string }) | null {
+  if (!x || typeof x !== 'object') return null;
+
+  const row = x as QuoteApiRow;
+
+  const symbolRaw =
+    typeof row.symbol === 'string'
+      ? row.symbol
+      : typeof row.ticker === 'string'
+        ? row.ticker
+        : '';
+
+  const symbol = safeSymbol(symbolRaw);
+  if (!symbol) return null;
+
+  const currentPrice = isFiniteNumber(row.currentPrice) ? row.currentPrice : undefined;
+  const dailyChangePercent = isFiniteNumber(row.dailyChangePercent)
+    ? row.dailyChangePercent
+    : undefined;
+  const logoUrl = typeof row.logoUrl === 'string' ? row.logoUrl : undefined;
+  const updatedAt = isIsoString(row.updatedAt) ? row.updatedAt : undefined;
+
+  return { symbol, currentPrice, dailyChangePercent, logoUrl, updatedAt };
 }
 
 export function useQuotes(symbols: string[]) {
@@ -83,13 +192,24 @@ export function useQuotes(symbols: string[]) {
 
   const result = useQuery<RemoteQuote[], Error>({
     queryKey: ['quotes', symbolsParam],
-    queryFn: () =>
-      MarketAPI.get<RemoteQuote[]>('/quotes', { params: { symbols: symbolsParam } }).then(
-        (res) => res.data,
-      ),
     enabled: normalized.length > 0,
 
-    placeholderData: (prev) => prev ?? buildPlaceholderFromCache(queryClient, normalized),
+    queryFn: async () => {
+      const res = await MarketAPI.get<unknown>('/quotes', { params: { symbols: symbolsParam } });
+
+      const data = res.data as unknown;
+      const raw = Array.isArray(data) ? data : data && typeof data === 'object' ? [data] : [];
+
+      const incoming = raw
+        .map(parseQuoteRow)
+        .filter((x): x is Partial<RemoteQuote> & { symbol: string } => x !== null);
+
+      upsertQuotesIntoCache(queryClient, incoming);
+
+      return buildQuotesForSymbols(queryClient, normalized);
+    },
+
+    placeholderData: () => buildQuotesForSymbols(queryClient, normalized),
 
     staleTime: 15_000,
     refetchInterval: 20_000,
@@ -100,19 +220,9 @@ export function useQuotes(symbols: string[]) {
   const handler = useCallback(
     (updates: PriceUpdate) => {
       if (!Array.isArray(updates) || updates.length === 0) return;
-      const updateMap = new Map(updates.map((u) => [String(u.symbol).toUpperCase(), u]));
 
-      const all = queryClient.getQueriesData<RemoteQuote[]>({ queryKey: ['quotes'] });
-      for (const [key, old] of all) {
-        if (!old || old.length === 0) continue;
-
-        const next = old.map((q) => {
-          const upd = updateMap.get(String(q.symbol).toUpperCase());
-          return upd ? mergeQuoteUpdate(q, upd) : q;
-        });
-
-        queryClient.setQueryData(key, next);
-      }
+      upsertQuotesIntoCache(queryClient, updates);
+      rebuildAllQuotesQueriesFromCache(queryClient);
     },
     [queryClient],
   );
@@ -124,11 +234,14 @@ export function useQuotes(symbols: string[]) {
     socket.on('price:update', handler);
     socket.on('price:snapshot', handler);
 
+    socket.emit('price:subscribe', { symbols: normalized });
+
     return () => {
+      socket.emit('price:unsubscribe', { symbols: normalized });
       socket.off('price:update', handler);
       socket.off('price:snapshot', handler);
     };
-  }, [handler, normalized.length]);
+  }, [handler, normalized]);
 
   return result;
 }
