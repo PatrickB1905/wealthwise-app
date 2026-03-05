@@ -1,0 +1,25 @@
+# ========================================================================
+# Line Endings Policy
+# - Enforce LF for all text files, regardless of Operating System/Editor.
+# - Explicitly mark binaries to prevent corruption.
+# ========================================================================
+
+# Auto-detect text and normalize line endings in the repository
+* text=auto eol=lf
+
+# ---- Explicit binaries (these are never normalized) ----
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.svg  -text
+*.pdf  binary
+
+# ---- Common generated / vendor-like files ----
+*.lock text eol=lf
+
+# ---- Shell scripts must be LF (Docker/Linux) ----
+*.sh   text eol=lf
+*.bash text eol=lf
