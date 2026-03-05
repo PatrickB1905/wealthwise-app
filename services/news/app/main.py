@@ -33,7 +33,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     - `settings=None` -> load from environment / optional local .env
     - tests can pass Settings(...) directly for isolation
     """
-    settings = settings or Settings()  # type: ignore[call-arg]
+    settings = settings or Settings()
     configure_logging(settings.log_level)
 
     app = FastAPI(

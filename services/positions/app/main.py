@@ -160,7 +160,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
-    s = settings or Settings()  # type: ignore[call-arg]
+    s = settings or Settings()
     configure_logging(s.log_level)
 
     app = FastAPI(
