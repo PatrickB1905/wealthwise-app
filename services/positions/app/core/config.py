@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from functools import lru_cache
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -66,3 +67,11 @@ class Settings(BaseSettings):
             origins = [o.strip() for o in self.frontend_origins_raw.split(",")]
             return [o for o in origins if o]
         return [self.frontend_origin]
+
+@lru_cache
+def get_settings() -> Settings:
+    """
+    Pydantic loads env vars, but using model_validate({}) avoids mypy thinking we must pass
+    required fields into the constructor.
+    """
+    return Settings.model_validate({})
