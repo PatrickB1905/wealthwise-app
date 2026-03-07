@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import yfinance as yf
+
+from app.core.config import settings
 
 log = logging.getLogger(__name__)
 
@@ -15,6 +17,27 @@ class QuoteData:
     current_price: float
     daily_change_percent: float
     logo_url: str
+
+
+def _normalize_domain_from_website(website: str) -> str:
+    parsed = urlparse(website.strip())
+    domain = parsed.netloc.strip().lower()
+
+    if domain.startswith("www."):
+        domain = domain[4:]
+
+    return domain
+
+
+def _build_logo_dev_url(domain: str) -> str:
+    if not domain or not settings.logo_dev_token:
+        return ""
+
+    encoded_domain = quote(domain, safe="")
+    encoded_token = quote(settings.logo_dev_token, safe="")
+    base_url = settings.logo_dev_base_url.rstrip("/")
+
+    return f"{base_url}/{encoded_domain}?token={encoded_token}"
 
 
 class YahooFinanceClient:
@@ -29,15 +52,18 @@ class YahooFinanceClient:
 
         try:
             tk = yf.Ticker(sym)
-
             info = tk.info or {}
-            logo_url = str(info.get("logo_url") or "")
 
-            website = str(info.get("website") or info.get("websiteUrl") or "")
-            if not logo_url and website:
-                domain = urlparse(website).netloc
-                if domain:
-                    logo_url = f"https://logo.clearbit.com/{domain}"
+            website = str(info.get("website") or info.get("websiteUrl") or "").strip()
+            yahoo_logo_url = str(info.get("logo_url") or "").strip()
+
+            logo_url = ""
+            if website:
+                domain = _normalize_domain_from_website(website)
+                logo_url = _build_logo_dev_url(domain)
+
+            if not logo_url and yahoo_logo_url:
+                logo_url = yahoo_logo_url
 
             hist = tk.history(period="2d", actions=False)
             if hist is None or len(hist) < 2:

@@ -1,6 +1,20 @@
-# WealthWise: Portfolio Intelligence Tracker
+<p align="center">
+  <img src="docs/images/wealthwise-banner.png" width="900">
+</p>
 
-## Project Description
+<p align="center">
+
+![version](https://img.shields.io/badge/version-1.0.0-blue?style=flat-square)
+![python](https://img.shields.io/badge/python-3.10%2B-brightgreen?style=flat-square)
+![node](https://img.shields.io/badge/node-20%2B-brightgreen?style=flat-square)
+![react](https://img.shields.io/badge/react-18-blue?style=flat-square)
+![typescript](https://img.shields.io/badge/typescript-5.x-blue?style=flat-square)
+![fastapi](https://img.shields.io/badge/fastapi-microservices-green?style=flat-square)
+![realtime](https://img.shields.io/badge/realtime-websockets-orange?style=flat-square)
+![docker](https://img.shields.io/badge/docker-ready-blue?style=flat-square)
+![license](https://img.shields.io/badge/license-MIT-lightgrey?style=flat-square)
+
+</p>
 
 WealthWise is a microservice-based portfolio tracking platform designed to help investors monitor their holdings, analyze performance, and stay informed with relevant financial news in one unified application.
 
@@ -12,24 +26,8 @@ By separating responsibilities into dedicated services, WealthWise remains modul
 
 ---
 
-## Badges
-
-![version](https://img.shields.io/badge/version-1.0.0-blue)
-![python](https://img.shields.io/badge/python-3.10%2B-brightgreen)
-![node](https://img.shields.io/badge/node-20%2B-brightgreen)
-![react](https://img.shields.io/badge/react-18-blue)
-![typescript](https://img.shields.io/badge/typescript-5.x-blue)
-![fastapi](https://img.shields.io/badge/fastapi-microservices-green)
-![realtime](https://img.shields.io/badge/realtime-websockets-orange)
-![docker](https://img.shields.io/badge/docker-ready-blue)
-![license](https://img.shields.io/badge/license-MIT-lightgrey)
-
----
-
 ## Table of Contents
 
-- [Project Description](#project-description)
-- [Badges](#badges)
 - [Architecture Overview](#architecture-overview)
 - [Tech Stack](#tech-stack)
 - [Key Features](#key-features)
@@ -112,10 +110,17 @@ Responsibilities:
 - **Providing a unified quotes API**  
   Exposes a simple `/quotes` endpoint that other services can call to retrieve price data for one or more symbols.
 
+- **Company logo resolution**  
+  Retrieves company logo assets associated with stock symbols so that portfolio positions can display recognizable branding alongside financial data.
+
 - **Reliability and fault tolerance**  
   Implements retry logic and error handling to gracefully manage network failures or temporary outages from external data providers.
 
-Currently, the service retrieves pricing data using **Yahoo Finance via the `yfinance` library**, which provides access to stock market pricing and historical quote information. This integration is intentionally encapsulated within the Market Data Service so that the underlying data provider can be replaced or extended in the future without requiring changes to other parts of the platform.
+Currently, the service retrieves pricing data using **Yahoo Finance via the `yfinance` library**, which provides access to stock market pricing and historical quote information.
+
+For company logos, the service uses **[Logo.dev](https://www.logo.dev/)** to retrieve brand assets based on the company's website domain. The domain is obtained from Yahoo Finance metadata and used to construct a Logo.dev image URL that can be rendered directly by the frontend.
+
+This integration is encapsulated within the Market Data Service so that logo providers can be replaced or extended in the future without requiring changes to other parts of the platform. If a domain-based logo cannot be resolved, the service falls back to the logo URL provided by Yahoo Finance when available.
 
 #### 📊 Analytics Service
 
@@ -200,6 +205,7 @@ WealthWise is built using a modern full-stack architecture composed of a React f
 ### 🔗 External Integrations
 
 - **Yahoo Finance (`yfinance`)** – Market price data  
+- **Logo.dev** – Company logo resolution based on domain metadata  
 - **NewsAPI** – Financial news aggregation  
 
 ### 🐳 Infrastructure
@@ -239,7 +245,7 @@ The WealthWise repository separates the frontend from backend microservices. Eac
 ### Repository Overview
 
 ```text
-wealthwise-app/
+WealthWise/
 │
 ├── frontend/               # React + TypeScript frontend application
 │
@@ -265,7 +271,7 @@ frontend/src/
 ├── app/                    # App-level providers and routing
 ├── features/               # Domain feature modules (portfolio, analytics, news, auth, etc.)
 ├── shared/                 # Shared libraries, theme, reusable UI
-└── assets/images/          # Screenshots and static images used in this README
+└── assets/images/          # Static image assets used by the frontend application
 ```
 
 ### ⚙️ Backend Service Structure
@@ -309,8 +315,8 @@ docker compose version
 ### 2. Clone the Repository
 
 ```bash
-git clone https://github.com/PatrickB1905/wealthwise-app.git
-cd wealthwise-app
+git clone https://github.com/PatrickB1905/WealthWise.git
+cd WealthWise
 ```
 
 ### 3. Configure Environment Variables
@@ -327,12 +333,16 @@ Update these values in `.env`:
 |--------|-------------|
 | `JWT_SECRET` | Secret key used to sign authentication tokens |
 | `NEWS_API_KEY` | API key used by the News Service to retrieve articles |
+| `LOGO_DEV_TOKEN` | Publishable API token used by the Market Data Service to retrieve company logos from Logo.dev |
 
-Generate a JWT secret:  
+Generate a JWT secret:\
 https://jwtsecrets.com/#generator
 
-Get a NewsAPI key:  
+Get a NewsAPI key:\
 https://newsapi.org/
+
+Get a Logo.dev API token:\
+https://logo.dev/
 
 > Never commit your `.env` file. Use `.env.example` as the template.
 
@@ -396,23 +406,23 @@ Once the platform is running and accessible in your browser, you can begin using
 
 ### 1. Create an Account
 
-![Register Page](frontend/src/assets/images/register-page.png)
+![Register Page](docs/images/register-page.png)
 
 ### 2. Log In
 
-![Login Page](frontend/src/assets/images/login-page.png)
+![Login Page](docs/images/login-page.png)
 
 ### 3. Add Portfolio Positions
 
-![Add Position](frontend/src/assets/images/add-position.png)
+![Add Position](docs/images/add-position.png)
 
 ### 4. View Portfolio Analytics
 
-![Analytics Dashboard](frontend/src/assets/images/analytics-screenshot.png)
+![Analytics Dashboard](docs/images/analytics-screenshot.png)
 
 ### 5. View Curated Financial News
 
-![News Feed](frontend/src/assets/images/news-page.png)
+![News Feed](docs/images/news-page.png)
 
 ---
 
@@ -484,8 +494,8 @@ Contributions are welcome! WealthWise is designed to be modular and developer-fr
 ### 1. Fork and Clone
 
 ```bash
-git clone https://github.com/PatrickB1905/wealthwise-app.git
-cd wealthwise-app
+git clone https://github.com/PatrickB1905/WealthWise.git
+cd WealthWise
 git checkout -b feature/your-feature-name
 ```
 
