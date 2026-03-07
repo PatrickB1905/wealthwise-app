@@ -98,6 +98,11 @@ function baseVm(overrides: VmOverrides = {}): UsePositionsPageVm {
     newSellPrice: '',
     newSellDate: null,
     tickerError: '',
+    quantityError: '',
+    buyPriceError: '',
+    buyDateError: '',
+    sellPriceError: '',
+    sellDateError: '',
 
     setNewTicker: jest.fn(),
     setNewQuantity: jest.fn(),
