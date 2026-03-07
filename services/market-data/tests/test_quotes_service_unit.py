@@ -17,7 +17,7 @@ class _Row:
 
 
 class _ClientOk(YahooFinanceClient):
-    def __init__(self, logo_url: str = "https://logo.clearbit.com/example.com") -> None:
+    def __init__(self, logo_url: str = "https://img.logo.dev/example.com?token=test-token") -> None:
         self._logo_url = logo_url
 
     def fetch_quote(self, symbol: str) -> QuoteData | None:
