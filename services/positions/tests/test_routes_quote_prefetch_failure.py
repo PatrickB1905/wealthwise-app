@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 import pytest
@@ -9,6 +10,8 @@ from fastapi.testclient import TestClient
 import app.api.routes as routes_mod
 from app.core.config import Settings
 from app.db.engine import get_session
+
+VALID_BUY_DATE = datetime(2026, 3, 6, tzinfo=timezone.utc).isoformat()
 
 
 class _Session:
@@ -75,7 +78,12 @@ def test_create_position_quote_prefetch_exception_rolls_back(
 
     r = c.post(
         "/api/positions",
-        json={"ticker": "AAPL", "quantity": 1.0, "buyPrice": 10.0, "buyDate": None},
+        json={
+            "ticker": "AAPL",
+            "quantity": 1.0,
+            "buyPrice": 10.0,
+            "buyDate": VALID_BUY_DATE,
+        },
     )
     assert r.status_code == 201
     assert session.rollbacks == 1

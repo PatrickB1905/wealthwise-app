@@ -11,6 +11,9 @@ import app.api.routes as routes_mod
 from app.core.config import Settings
 from app.db.engine import get_session
 
+VALID_BUY_DATE = datetime(2026, 3, 6, tzinfo=timezone.utc).isoformat()
+VALID_SELL_DATE = datetime(2026, 3, 7, tzinfo=timezone.utc).isoformat()
+
 
 class DummySession:
     """Marker session; repositories are faked in tests."""
@@ -68,17 +71,163 @@ def test_list_positions_rejects_invalid_status(client: TestClient):
 def test_create_position_rejects_blank_ticker(client: TestClient):
     r = client.post(
         "/api/positions",
-        json={"ticker": "   ", "quantity": 1.0, "buyPrice": 10.0, "buyDate": None},
+        json={
+            "ticker": "   ",
+            "quantity": 1.0,
+            "buyPrice": 10.0,
+            "buyDate": VALID_BUY_DATE,
+        },
     )
     assert r.status_code == 400
+
+
+def test_create_position_rejects_non_positive_quantity(client: TestClient):
+    r = client.post(
+        "/api/positions",
+        json={
+            "ticker": "AAPL",
+            "quantity": 0,
+            "buyPrice": 10.0,
+            "buyDate": VALID_BUY_DATE,
+        },
+    )
+    assert r.status_code == 422
+
+
+def test_create_position_rejects_non_positive_buy_price(client: TestClient):
+    r = client.post(
+        "/api/positions",
+        json={
+            "ticker": "AAPL",
+            "quantity": 1.0,
+            "buyPrice": 0,
+            "buyDate": VALID_BUY_DATE,
+        },
+    )
+    assert r.status_code == 422
+
+
+def test_update_position_rejects_non_positive_quantity(client: TestClient):
+    created = client.post(
+        "/api/positions",
+        json={
+            "ticker": "AAPL",
+            "quantity": 1.0,
+            "buyPrice": 10.0,
+            "buyDate": VALID_BUY_DATE,
+        },
+    )
+    assert created.status_code == 201
+    pos_id = created.json()["id"]
+
+    r = client.put(
+        f"/api/positions/{pos_id}",
+        json={
+            "quantity": -1.0,
+            "buyPrice": 11.0,
+            "buyDate": VALID_BUY_DATE,
+            "sellPrice": None,
+            "sellDate": None,
+        },
+    )
+    assert r.status_code == 422
+
+
+def test_update_position_rejects_non_positive_buy_price(client: TestClient):
+    created = client.post(
+        "/api/positions",
+        json={
+            "ticker": "AAPL",
+            "quantity": 1.0,
+            "buyPrice": 10.0,
+            "buyDate": VALID_BUY_DATE,
+        },
+    )
+    assert created.status_code == 201
+    pos_id = created.json()["id"]
+
+    r = client.put(
+        f"/api/positions/{pos_id}",
+        json={
+            "quantity": 2.0,
+            "buyPrice": -11.0,
+            "buyDate": VALID_BUY_DATE,
+            "sellPrice": None,
+            "sellDate": None,
+        },
+    )
+    assert r.status_code == 422
 
 
 def test_close_position_404_when_missing(client: TestClient):
     r = client.put(
         "/api/positions/999/close",
-        json={"sellPrice": 12.0, "sellDate": None},
+        json={"sellPrice": 12.0, "sellDate": VALID_SELL_DATE},
     )
     assert r.status_code == 404
+
+
+def test_close_position_rejects_missing_sell_price(client: TestClient):
+    created = client.post(
+        "/api/positions",
+        json={
+            "ticker": "AAPL",
+            "quantity": 1.0,
+            "buyPrice": 10.0,
+            "buyDate": VALID_BUY_DATE,
+        },
+    )
+    assert created.status_code == 201
+    pos_id = created.json()["id"]
+
+    r = client.put(
+        f"/api/positions/{pos_id}/close",
+        json={"sellDate": VALID_SELL_DATE},
+    )
+    assert r.status_code == 422
+
+
+def test_close_position_allows_zero_sell_price(client: TestClient):
+    created = client.post(
+        "/api/positions",
+        json={
+            "ticker": "AAPL",
+            "quantity": 1.0,
+            "buyPrice": 10.0,
+            "buyDate": VALID_BUY_DATE,
+        },
+    )
+    assert created.status_code == 201
+    pos_id = created.json()["id"]
+
+    r = client.put(
+        f"/api/positions/{pos_id}/close",
+        json={
+            "sellPrice": 0,
+            "sellDate": VALID_SELL_DATE,
+        },
+    )
+    assert r.status_code == 200
+
+
+def test_close_position_rejects_missing_sell_date(client: TestClient):
+    created = client.post(
+        "/api/positions",
+        json={
+            "ticker": "AAPL",
+            "quantity": 1.0,
+            "buyPrice": 10.0,
+            "buyDate": VALID_BUY_DATE,
+        },
+    )
+    assert created.status_code == 201
+    pos_id = created.json()["id"]
+
+    r = client.put(
+        f"/api/positions/{pos_id}/close",
+        json={"sellPrice": 10.0},
+    )
+    assert r.status_code == 422
 
 
 def test_update_position_404_when_missing(client: TestClient):
@@ -87,7 +236,7 @@ def test_update_position_404_when_missing(client: TestClient):
         json={
             "quantity": 2.0,
             "buyPrice": 11.0,
-            "buyDate": None,
+            "buyDate": VALID_BUY_DATE,
             "sellPrice": None,
             "sellDate": None,
         },
@@ -107,7 +256,7 @@ def test_delete_position_emits_event(client: TestClient, emitter):
             "ticker": "aapl",
             "quantity": 1.0,
             "buyPrice": 10.0,
-            "buyDate": datetime.now(timezone.utc).isoformat(),
+            "buyDate": VALID_BUY_DATE,
         },
     )
     assert created.status_code == 201

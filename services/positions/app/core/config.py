@@ -68,6 +68,7 @@ class Settings(BaseSettings):
             return [o for o in origins if o]
         return [self.frontend_origin]
 
+
 @lru_cache
 def get_settings() -> Settings:
     """

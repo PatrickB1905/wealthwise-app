@@ -1,12 +1,12 @@
 import React from 'react';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
-import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 
 import {
   InlineInfoAlert,
+  MutedHelperText,
   PageCard,
   PositionsTabGroupWrap,
   SectionContent,
@@ -117,9 +117,9 @@ const PositionsPage: React.FC = () => {
             )}
 
             {vm.positions.length > 0 && vm.tab === 'closed' && vm.isMobile ? (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              <MutedHelperText variant="body2">
                 Totals are shown above for quick reference.
-              </Typography>
+              </MutedHelperText>
             ) : null}
           </SectionContent>
         </PageCard>
@@ -143,6 +143,11 @@ const PositionsPage: React.FC = () => {
         newSellPrice={vm.newSellPrice}
         newSellDate={vm.newSellDate}
         tickerError={vm.tickerError}
+        quantityError={vm.quantityError}
+        buyPriceError={vm.buyPriceError}
+        buyDateError={vm.buyDateError}
+        sellPriceError={vm.sellPriceError}
+        sellDateError={vm.sellDateError}
         setNewTicker={vm.setNewTicker}
         setNewQuantity={vm.setNewQuantity}
         setNewBuyPrice={vm.setNewBuyPrice}

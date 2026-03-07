@@ -1,3 +1,4 @@
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
@@ -10,7 +11,10 @@ import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
 
+import { AppTooltip, KpiInfoButton } from '@shared/ui';
+
 import type { Position } from '../types/position';
+import { DialogFieldLabelWrap, DialogSubmitButton } from './PositionDialogs.styles';
 
 type Props = {
   tab: 'open' | 'closed';
@@ -36,6 +40,11 @@ type Props = {
   newSellPrice: string;
   newSellDate: Dayjs | null;
   tickerError: string;
+  quantityError: string;
+  buyPriceError: string;
+  buyDateError: string;
+  sellPriceError: string;
+  sellDateError: string;
 
   // Setters
   setNewTicker: (v: string) => void;
@@ -57,6 +66,55 @@ type Props = {
   isEditing: boolean;
   isDeleting: boolean;
 };
+
+const POSITIVE_NUMBER_INPUT_PROPS = {
+  min: 0.00000001,
+  step: 'any',
+};
+
+const ANY_NUMBER_INPUT_PROPS = {
+  step: 'any',
+};
+
+type FieldLabelWithTipProps = {
+  label: string;
+  tip: React.ReactNode;
+};
+
+function FieldLabelWithTip({ label, tip }: FieldLabelWithTipProps) {
+  return (
+    <DialogFieldLabelWrap>
+      <span>{label}</span>
+      <AppTooltip title={tip}>
+        <span>
+          <KpiInfoButton 
+		    aria-label={`${label} info`}
+			tabIndex={-1}
+			disableRipple
+			disableFocusRipple
+		  >
+            <InfoOutlinedIcon fontSize="inherit" />
+          </KpiInfoButton>
+        </span>
+      </AppTooltip>
+    </DialogFieldLabelWrap>
+  );
+}
+
+const TICKER_TIP =
+  'Enter the market ticker symbol for this holding, for example AMZN, MSFT, or AAPL.';
+
+const QUANTITY_TIP =
+  'Enter the number of shares purchased. Fractional shares are supported, but the quantity must be greater than 0';
+
+const BUY_PRICE_TIP =
+  'Enter the purchase price per share. This value is required and must be greater than 0.';
+
+const SELL_PRICE_TIP =
+  'Enter the selling price per share used to close the position. This value is required. Zero is allowed if the position became worthless.';
+
+const DATE_TIP =
+  'Enter a valid calendar date or select one using the calendar picker. Invalid or empty dates are not accepted.';
 
 export function PositionDialogs(props: Props) {
   const {
@@ -80,6 +138,11 @@ export function PositionDialogs(props: Props) {
     newSellPrice,
     newSellDate,
     tickerError,
+    quantityError,
+    buyPriceError,
+    buyDateError,
+    sellPriceError,
+    sellDateError,
 
     setNewTicker,
     setNewQuantity,
@@ -107,7 +170,7 @@ export function PositionDialogs(props: Props) {
           <TextField
             fullWidth
             margin="dense"
-            label="Ticker"
+            label={<FieldLabelWithTip label="Ticker" tip={TICKER_TIP} />}
             value={newTicker}
             error={Boolean(tickerError)}
             helperText={tickerError}
@@ -116,42 +179,54 @@ export function PositionDialogs(props: Props) {
           <TextField
             fullWidth
             margin="dense"
-            label="Quantity"
+            label={<FieldLabelWithTip label="Quantity" tip={QUANTITY_TIP} />}
             type="number"
             value={newQuantity}
+            error={Boolean(quantityError)}
+            helperText={quantityError}
+            inputProps={POSITIVE_NUMBER_INPUT_PROPS}
             onChange={(e) => setNewQuantity(e.target.value)}
           />
           <TextField
             fullWidth
             margin="dense"
-            label="Buy Price"
+            label={<FieldLabelWithTip label="Buy Price" tip={BUY_PRICE_TIP} />}
             type="number"
             value={newBuyPrice}
+            error={Boolean(buyPriceError)}
+            helperText={buyPriceError}
+            inputProps={POSITIVE_NUMBER_INPUT_PROPS}
             onChange={(e) => setNewBuyPrice(e.target.value)}
           />
 
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DatePicker
-              label="Buy Date"
+              label={<FieldLabelWithTip label="Buy Date" tip={DATE_TIP} />}
               value={newBuyDate}
               onChange={(d) => setNewBuyDate(d)}
               disableFuture
-              slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  margin: 'dense',
+                  error: Boolean(buyDateError),
+                  helperText: buyDateError,
+                },
+              }}
             />
           </LocalizationProvider>
         </DialogContent>
 
         <DialogActions>
           <Button onClick={onCloseAdd}>Cancel</Button>
-          <Button
+          <DialogSubmitButton
             onClick={onAddSubmit}
             disabled={isAdding}
             variant="contained"
             startIcon={isAdding ? <CircularProgress size={18} /> : undefined}
-            sx={{ minWidth: 140 }}
           >
             {isAdding ? 'Saving…' : 'Save'}
-          </Button>
+          </DialogSubmitButton>
         </DialogActions>
       </Dialog>
 
@@ -161,34 +236,43 @@ export function PositionDialogs(props: Props) {
           <TextField
             fullWidth
             margin="dense"
-            label="Sell Price"
+            label={<FieldLabelWithTip label="Sell Price" tip={SELL_PRICE_TIP} />}
             type="number"
             value={newSellPrice}
+            error={Boolean(sellPriceError)}
+            helperText={sellPriceError}
+            inputProps={ANY_NUMBER_INPUT_PROPS}
             onChange={(e) => setNewSellPrice(e.target.value)}
           />
 
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DatePicker
-              label="Sell Date"
+              label={<FieldLabelWithTip label="Sell Date" tip={DATE_TIP} />}
               value={newSellDate}
               onChange={(d) => setNewSellDate(d)}
               disableFuture
-              slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  margin: 'dense',
+                  error: Boolean(sellDateError),
+                  helperText: sellDateError,
+                },
+              }}
             />
           </LocalizationProvider>
         </DialogContent>
 
         <DialogActions>
           <Button onClick={onCloseClose}>Cancel</Button>
-          <Button
+          <DialogSubmitButton
             onClick={onCloseSubmit}
             disabled={isClosing}
             variant="contained"
             startIcon={isClosing ? <CircularProgress size={18} /> : undefined}
-            sx={{ minWidth: 140 }}
           >
             {isClosing ? 'Closing…' : 'Close'}
-          </Button>
+          </DialogSubmitButton>
         </DialogActions>
       </Dialog>
 
@@ -198,27 +282,40 @@ export function PositionDialogs(props: Props) {
           <TextField
             fullWidth
             margin="dense"
-            label="Quantity"
+            label={<FieldLabelWithTip label="Quantity" tip={QUANTITY_TIP} />}
             type="number"
             value={newQuantity}
+            error={Boolean(quantityError)}
+            helperText={quantityError}
+            inputProps={POSITIVE_NUMBER_INPUT_PROPS}
             onChange={(e) => setNewQuantity(e.target.value)}
           />
           <TextField
             fullWidth
             margin="dense"
-            label="Buy Price"
+            label={<FieldLabelWithTip label="Buy Price" tip={BUY_PRICE_TIP} />}
             type="number"
             value={newBuyPrice}
+            error={Boolean(buyPriceError)}
+            helperText={buyPriceError}
+            inputProps={POSITIVE_NUMBER_INPUT_PROPS}
             onChange={(e) => setNewBuyPrice(e.target.value)}
           />
 
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DatePicker
-              label="Buy Date"
+              label={<FieldLabelWithTip label="Buy Date" tip={DATE_TIP} />}
               value={newBuyDate}
               onChange={(d) => setNewBuyDate(d)}
               disableFuture
-              slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  margin: 'dense',
+                  error: Boolean(buyDateError),
+                  helperText: buyDateError,
+                },
+              }}
             />
           </LocalizationProvider>
 
@@ -227,18 +324,28 @@ export function PositionDialogs(props: Props) {
               <TextField
                 fullWidth
                 margin="dense"
-                label="Sell Price"
+                label={<FieldLabelWithTip label="Sell Price" tip={SELL_PRICE_TIP} />}
                 type="number"
                 value={newSellPrice}
+                error={Boolean(sellPriceError)}
+                helperText={sellPriceError}
+                inputProps={ANY_NUMBER_INPUT_PROPS}
                 onChange={(e) => setNewSellPrice(e.target.value)}
               />
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <DatePicker
-                  label="Sell Date"
+                  label={<FieldLabelWithTip label="Sell Date" tip={DATE_TIP} />}
                   value={newSellDate}
                   onChange={(d) => setNewSellDate(d)}
                   disableFuture
-                  slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      margin: 'dense',
+                      error: Boolean(sellDateError),
+                      helperText: sellDateError,
+                    },
+                  }}
                 />
               </LocalizationProvider>
             </>
@@ -247,15 +354,14 @@ export function PositionDialogs(props: Props) {
 
         <DialogActions>
           <Button onClick={onCloseEdit}>Cancel</Button>
-          <Button
+          <DialogSubmitButton
             onClick={onEditSubmit}
             disabled={isEditing}
             variant="contained"
             startIcon={isEditing ? <CircularProgress size={18} /> : undefined}
-            sx={{ minWidth: 140 }}
           >
             {isEditing ? 'Saving…' : 'Save'}
-          </Button>
+          </DialogSubmitButton>
         </DialogActions>
       </Dialog>
 
@@ -267,16 +373,15 @@ export function PositionDialogs(props: Props) {
 
         <DialogActions>
           <Button onClick={onCloseDelete}>Cancel</Button>
-          <Button
+          <DialogSubmitButton
             color="error"
             onClick={onDeleteConfirm}
             disabled={isDeleting}
             variant="contained"
             startIcon={isDeleting ? <CircularProgress size={18} /> : undefined}
-            sx={{ minWidth: 140 }}
           >
             {isDeleting ? 'Deleting…' : 'Delete'}
-          </Button>
+          </DialogSubmitButton>
         </DialogActions>
       </Dialog>
     </>

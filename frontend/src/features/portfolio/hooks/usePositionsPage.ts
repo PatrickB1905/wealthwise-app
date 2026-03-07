@@ -62,6 +62,11 @@ export type PositionsPageVM = {
   newSellPrice: string;
   newSellDate: Dayjs | null;
   tickerError: string;
+  quantityError: string;
+  buyPriceError: string;
+  buyDateError: string;
+  sellPriceError: string;
+  sellDateError: string;
 
   // Form setters
   setNewTicker: (v: string) => void;
@@ -98,6 +103,39 @@ export type PositionsPageVM = {
   closeToast: () => void;
 };
 
+const QUANTITY_ERROR_MESSAGE = 'Quantity must be greater than 0';
+const BUY_PRICE_REQUIRED_MESSAGE = 'Buy price is required';
+const BUY_PRICE_POSITIVE_MESSAGE = 'Buy price must be greater than 0';
+const BUY_DATE_REQUIRED_MESSAGE = 'Buy date is required';
+const BUY_DATE_INVALID_MESSAGE = 'Enter a valid buy date';
+const SELL_PRICE_REQUIRED_MESSAGE = 'Sell price is required';
+const SELL_DATE_REQUIRED_MESSAGE = 'Sell date is required';
+const SELL_DATE_INVALID_MESSAGE = 'Enter a valid sell date';
+
+function parsePositiveNumber(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function parseRequiredNumberAllowZero(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return parsed;
+}
+
 export function usePositionsPage(isMobile: boolean): PositionsPageVM {
   usePositionWS();
   const qc = useQueryClient();
@@ -117,6 +155,11 @@ export function usePositionsPage(isMobile: boolean): PositionsPageVM {
   const [newSellPrice, setNewSellPrice] = useState('');
   const [newSellDate, setNewSellDate] = useState<Dayjs | null>(dayjs());
   const [tickerError, setTickerError] = useState('');
+  const [quantityError, setQuantityError] = useState('');
+  const [buyPriceError, setBuyPriceError] = useState('');
+  const [buyDateError, setBuyDateError] = useState('');
+  const [sellPriceError, setSellPriceError] = useState('');
+  const [sellDateError, setSellDateError] = useState('');
 
   const [toast, setToast] = useState<ToastState>({ open: false, message: '', severity: 'success' });
   const showToast = (message: string, severity: ToastSeverity = 'success') => {
@@ -139,7 +182,6 @@ export function usePositionsPage(isMobile: boolean): PositionsPageVM {
   const quotesResult = useQuotes(tickers);
 
   const quotesArray = useMemo<RemoteQuote[]>(() => quotesResult.data ?? [], [quotesResult.data]);
-
   const quotesLoading = quotesResult.isLoading;
 
   const quotesMap = useMemo<Record<string, RemoteQuote>>(() => {
@@ -292,41 +334,171 @@ export function usePositionsPage(isMobile: boolean): PositionsPageVM {
     },
   });
 
+  const validateQuantity = (): number | null => {
+    const parsedQuantity = parsePositiveNumber(newQuantity);
+    if (parsedQuantity === null) {
+      setQuantityError(QUANTITY_ERROR_MESSAGE);
+      return null;
+    }
+
+    setQuantityError('');
+    return parsedQuantity;
+  };
+
+  const validateBuyPrice = (): number | null => {
+    const trimmed = newBuyPrice.trim();
+    if (!trimmed) {
+      setBuyPriceError(BUY_PRICE_REQUIRED_MESSAGE);
+      return null;
+    }
+
+    const parsedBuyPrice = parsePositiveNumber(trimmed);
+    if (parsedBuyPrice === null) {
+      setBuyPriceError(BUY_PRICE_POSITIVE_MESSAGE);
+      return null;
+    }
+
+    setBuyPriceError('');
+    return parsedBuyPrice;
+  };
+
+  const validateBuyDate = (): string | null => {
+    if (newBuyDate === null) {
+      setBuyDateError(BUY_DATE_REQUIRED_MESSAGE);
+      return null;
+    }
+    if (!newBuyDate.isValid()) {
+      setBuyDateError(BUY_DATE_INVALID_MESSAGE);
+      return null;
+    }
+
+    setBuyDateError('');
+    return newBuyDate.toISOString();
+  };
+
+  const validateSellPrice = (): number | null => {
+    const trimmed = newSellPrice.trim();
+    if (!trimmed) {
+      setSellPriceError(SELL_PRICE_REQUIRED_MESSAGE);
+      return null;
+    }
+
+    const parsedSellPrice = parseRequiredNumberAllowZero(trimmed);
+    if (parsedSellPrice === null) {
+      setSellPriceError(SELL_PRICE_REQUIRED_MESSAGE);
+      return null;
+    }
+
+    setSellPriceError('');
+    return parsedSellPrice;
+  };
+
+  const validateSellDate = (): string | null => {
+    if (newSellDate === null) {
+      setSellDateError(SELL_DATE_REQUIRED_MESSAGE);
+      return null;
+    }
+
+    if (!newSellDate.isValid()) {
+      setSellDateError(SELL_DATE_INVALID_MESSAGE);
+      return null;
+    }
+
+    setSellDateError('');
+    return newSellDate.toISOString();
+  };
+
   const onAddSubmit = () => {
     setTickerError('');
+
     const sym = normalizeSymbol(newTicker);
     if (!sym) {
       setTickerError('Ticker is required');
       return;
     }
 
+    const quantity = validateQuantity();
+    if (quantity === null) {
+      return;
+    }
+
+    const buyPrice = validateBuyPrice();
+    if (buyPrice === null) {
+      return;
+    }
+
+    const buyDate = validateBuyDate();
+    if (buyDate === null) {
+      return;
+    }
+
     addPosition.mutate({
       ticker: sym,
-      quantity: Number(newQuantity),
-      buyPrice: Number(newBuyPrice),
-      buyDate: newBuyDate?.toISOString(),
+      quantity,
+      buyPrice,
+      buyDate,
     });
   };
 
   const onCloseSubmit = () => {
     if (!selected) return;
+
+    const sellPrice = validateSellPrice();
+    if (sellPrice === null) {
+      return;
+    }
+
+    const sellDate = validateSellDate();
+    if (sellDate === null) {
+      return;
+    }
+
     closePosition.mutate({
       id: selected.id,
-      sellPrice: Number(newSellPrice),
-      sellDate: newSellDate?.toISOString(),
+      sellPrice,
+      sellDate,
     });
   };
 
   const onEditSubmit = () => {
     if (!selected) return;
+
+    const quantity = validateQuantity();
+    if (quantity === null) {
+      return;
+    }
+
+    const buyPrice = validateBuyPrice();
+    if (buyPrice === null) {
+      return;
+    }
+
+    const buyDate = validateBuyDate();
+    if (buyDate === null) {
+      return;
+    }
+
+    let closedFields: { sellPrice?: number; sellDate?: string } = {};
+    if (tab === 'closed') {
+      const sellPrice = validateSellPrice();
+      if (sellPrice === null) {
+        return;
+      }
+
+      const sellDate = validateSellDate();
+      if (sellDate === null) {
+        return;
+      }
+
+      closedFields = { sellPrice, sellDate };
+    }
+
     editPosition.mutate({
       id: selected.id,
-      quantity: Number(newQuantity),
-      buyPrice: Number(newBuyPrice),
-      buyDate: newBuyDate?.toISOString(),
-      ...(tab === 'closed'
-        ? { sellPrice: Number(newSellPrice), sellDate: newSellDate?.toISOString() }
-        : {}),
+      quantity,
+      buyPrice,
+      buyDate,
+      ...closedFields,
     });
   };
 
@@ -341,6 +513,9 @@ export function usePositionsPage(isMobile: boolean): PositionsPageVM {
     setNewBuyPrice('');
     setNewBuyDate(dayjs());
     setTickerError('');
+    setQuantityError('');
+    setBuyPriceError('');
+    setBuyDateError('');
     setAddOpen(true);
   };
 
@@ -353,6 +528,8 @@ export function usePositionsPage(isMobile: boolean): PositionsPageVM {
     setSelected(pos);
     setNewSellPrice('');
     setNewSellDate(dayjs());
+    setSellPriceError('');
+    setSellDateError('');
     setCloseOpen(true);
   };
 
@@ -361,13 +538,83 @@ export function usePositionsPage(isMobile: boolean): PositionsPageVM {
     setNewQuantity(String(pos.quantity));
     setNewBuyPrice(String(pos.buyPrice));
     setNewBuyDate(dayjs(pos.buyDate));
+    setQuantityError('');
+    setBuyPriceError('');
+    setBuyDateError('');
+    setSellPriceError('');
+    setSellDateError('');
 
     if (tab === 'closed') {
-      if (pos.sellDate) setNewSellDate(dayjs(pos.sellDate));
-      if (isFiniteNumber(pos.sellPrice)) setNewSellPrice(String(pos.sellPrice));
+      setNewSellDate(pos.sellDate ? dayjs(pos.sellDate) : dayjs());
+      setNewSellPrice(isFiniteNumber(pos.sellPrice) ? String(pos.sellPrice) : '');
     }
 
     setEditOpen(true);
+  };
+
+  const handleSetNewTicker = (value: string) => {
+    setNewTicker(value);
+    if (value.trim()) {
+      setTickerError('');
+    }
+  };
+
+  const handleSetNewQuantity = (value: string) => {
+    setNewQuantity(value);
+
+    if (!value.trim()) {
+      setQuantityError('');
+      return;
+    }
+
+    const parsed = parsePositiveNumber(value);
+    setQuantityError(parsed === null ? QUANTITY_ERROR_MESSAGE : '');
+  };
+
+  const handleSetNewBuyPrice = (value: string) => {
+    setNewBuyPrice(value);
+
+    if (!value.trim()) {
+      setBuyPriceError('');
+      return;
+    }
+
+    const parsed = parsePositiveNumber(value);
+    setBuyPriceError(parsed === null ? BUY_PRICE_POSITIVE_MESSAGE : '');
+  };
+
+  const handleSetNewBuyDate = (value: Dayjs | null) => {
+    setNewBuyDate(value);
+
+    if (value === null) {
+      setBuyDateError('');
+      return;
+    }
+
+    setBuyDateError(value.isValid() ? '' : BUY_DATE_INVALID_MESSAGE);
+  };
+
+  const handleSetNewSellPrice = (value: string) => {
+    setNewSellPrice(value);
+
+    if (!value.trim()) {
+      setSellPriceError('');
+      return;
+    }
+
+    const parsed = parseRequiredNumberAllowZero(value);
+    setSellPriceError(parsed === null ? SELL_PRICE_REQUIRED_MESSAGE : '');
+  };
+
+  const handleSetNewSellDate = (value: Dayjs | null) => {
+    setNewSellDate(value);
+
+    if (value === null) {
+      setSellDateError('');
+      return;
+    }
+
+    setSellDateError(value.isValid() ? '' : SELL_DATE_INVALID_MESSAGE);
   };
 
   return {
@@ -400,21 +647,43 @@ export function usePositionsPage(isMobile: boolean): PositionsPageVM {
     newSellPrice,
     newSellDate,
     tickerError,
+    quantityError,
+    buyPriceError,
+    buyDateError,
+    sellPriceError,
+    sellDateError,
 
-    setNewTicker,
-    setNewQuantity,
-    setNewBuyPrice,
-    setNewBuyDate,
-    setNewSellPrice,
-    setNewSellDate,
+    setNewTicker: handleSetNewTicker,
+    setNewQuantity: handleSetNewQuantity,
+    setNewBuyPrice: handleSetNewBuyPrice,
+    setNewBuyDate: handleSetNewBuyDate,
+    setNewSellPrice: handleSetNewSellPrice,
+    setNewSellDate: handleSetNewSellDate,
 
     openAddDialog,
     openCloseDialog,
     openEditDialog,
     openDeleteDialog,
-    closeAddDialog: () => setAddOpen(false),
-    closeCloseDialog: () => setCloseOpen(false),
-    closeEditDialog: () => setEditOpen(false),
+    closeAddDialog: () => {
+      setAddOpen(false);
+      setTickerError('');
+      setQuantityError('');
+      setBuyPriceError('');
+      setBuyDateError('');
+    },
+    closeCloseDialog: () => {
+      setCloseOpen(false);
+      setSellPriceError('');
+      setSellDateError('');
+    },
+    closeEditDialog: () => {
+      setEditOpen(false);
+      setQuantityError('');
+      setBuyPriceError('');
+      setBuyDateError('');
+      setSellPriceError('');
+      setSellDateError('');
+    },
     closeDeleteDialog: () => setDeleteOpen(false),
 
     onAddSubmit,

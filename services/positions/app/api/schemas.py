@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.db.models import Position
 
@@ -49,20 +49,20 @@ class AuthUpdatePasswordRequest(BaseModel):
 
 class PositionCreateRequest(BaseModel):
     ticker: str
-    quantity: float
-    buyPrice: float
-    buyDate: datetime | None = None
+    quantity: float = Field(..., gt=0)
+    buyPrice: float = Field(..., gt=0)
+    buyDate: datetime
 
 
 class PositionCloseRequest(BaseModel):
     sellPrice: float
-    sellDate: datetime | None = None
+    sellDate: datetime
 
 
 class PositionUpdateRequest(BaseModel):
-    quantity: float
-    buyPrice: float
-    buyDate: datetime | None = None
+    quantity: float = Field(..., gt=0)
+    buyPrice: float = Field(..., gt=0)
+    buyDate: datetime
     sellPrice: float | None = None
     sellDate: datetime | None = None
 

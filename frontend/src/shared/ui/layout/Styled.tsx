@@ -647,17 +647,22 @@ export const KpiChip = styled(Chip)(({ theme }) => ({
 }));
 
 export const KpiInfoButton = styled(IconButton)(({ theme }) => ({
-  width: 28,
-  height: 28,
+  width: 18,
+  height: 18,
   padding: 0,
+  marginLeft: theme.spacing(0.25),
   borderRadius: 999,
-  border: `1px solid ${alpha(theme.palette.text.primary, 0.1)}`,
-  backgroundColor: alpha(theme.palette.text.primary, 0.03),
-  transition: 'background-color 140ms ease, border-color 140ms ease, transform 140ms ease',
+  color: alpha(theme.palette.text.secondary, 0.7),
+  backgroundColor: 'transparent',
+  border: 'none',
+  fontSize: 16,
   '&:hover': {
-    backgroundColor: alpha(theme.palette.text.primary, 0.06),
-    borderColor: alpha(theme.palette.text.primary, 0.16),
-    transform: 'translateY(-1px)',
+    backgroundColor: 'transparent',
+    color: theme.palette.text.secondary,
+  },
+  '&.Mui-focusVisible': {
+    outline: 'none',
+    backgroundColor: 'transparent',
   },
 }));
 
@@ -704,6 +709,11 @@ export const PositionsActions = styled(Box)(({ theme }) => ({
   justifyContent: 'center',
   gap: theme.spacing(1),
   flexWrap: 'wrap',
+}));
+
+export const MutedHelperText = styled(Typography)(({ theme }) => ({
+  marginTop: theme.spacing(2),
+  color: theme.palette.text.secondary,
 }));
 
 export const TickerCell = styled(Box)(({ theme }) => ({
