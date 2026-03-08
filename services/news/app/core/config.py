@@ -41,8 +41,9 @@ class Settings(BaseSettings):
 
     port: int = Field(default=6500, validation_alias="NEWS_SERVICE_PORT")
 
-    per_symbol_limit: int = Field(default=5, validation_alias="NEWS_PER_SYMBOL_LIMIT")
+    per_symbol_limit: int = Field(default=8, validation_alias="NEWS_PER_SYMBOL_LIMIT")
     request_timeout_seconds: float = Field(default=5.0, validation_alias="NEWS_TIMEOUT_SECONDS")
+    minimum_article_score: int = Field(default=3, validation_alias="NEWS_MIN_ARTICLE_SCORE")
 
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
 
@@ -51,6 +52,7 @@ class Settings(BaseSettings):
         if self.frontend_origins_csv:
             return _split_csv(self.frontend_origins_csv)
         return [self.frontend_origin]
+
 
 @lru_cache
 def get_settings() -> Settings:

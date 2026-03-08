@@ -30,18 +30,21 @@ class NewsApiClient:
     def close(self) -> None:
         self._http.close()
 
-    def fetch_recent(self, symbol: str, limit: int) -> list[NewsApiArticle]:
+    def fetch_recent(self, query: str, limit: int) -> list[NewsApiArticle]:
         params: Mapping[str, str | int] = {
-            "q": symbol,
+            "q": query,
             "apiKey": self._api_key,
             "pageSize": int(limit),
-            "sortBy": "publishedAt",
+            "sortBy": "relevancy",
             "language": "en",
+            "searchIn": "title,description",
         }
 
         resp = self._http.get(NEWSAPI_EVERYTHING_URL, params=params, timeout=self._timeout)
         if resp.status_code != 200:
-            log.warning("NewsAPI non-200 for %s: %s %s", symbol, resp.status_code, resp.text[:200])
+            log.warning(
+                "NewsAPI non-200 for query=%s: %s %s", query, resp.status_code, resp.text[:200]
+            )
             raise RuntimeError(f"NewsAPI error ({resp.status_code})")
 
         data = resp.json()
