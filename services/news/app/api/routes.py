@@ -47,7 +47,12 @@ def get_news(
         return []
 
     try:
-        items = fetch_articles_for_symbols(client, syms, settings.per_symbol_limit)
+        items = fetch_articles_for_symbols(
+            client=client,
+            symbols=syms,
+            per_symbol_limit=settings.per_symbol_limit,
+            minimum_score=settings.minimum_article_score,
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail="Upstream news provider unavailable") from exc
     except Exception as exc:

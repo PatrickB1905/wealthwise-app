@@ -8,17 +8,42 @@ class FakeNewsApiClient:
     def __init__(self):
         self.calls = []
 
-    def fetch_recent(self, symbol: str, limit: int):
-        self.calls.append((symbol, limit))
+    def fetch_recent(self, query: str, limit: int):
+        self.calls.append((query, limit))
+
+        if '"AMZN"' in query:
+            return [
+                type(
+                    "A",
+                    (),
+                    {
+                        "title": "What Makes Amazon (AMZN) an Overall High-Quality Growth Compounder",
+                        "source": "Seeking Alpha",
+                        "url": "https://example.com/amzn-good",
+                        "published_at": "2026-03-01T00:00:00Z",
+                    },
+                )(),
+                type(
+                    "A",
+                    (),
+                    {
+                        "title": "Saipan 2025 1080p AMZN WEB-DL H264-MADSKY",
+                        "source": "Bad Source",
+                        "url": "https://example.com/amzn-bad",
+                        "published_at": "2026-03-01T00:00:00Z",
+                    },
+                )(),
+            ]
+
         return [
             type(
                 "A",
                 (),
                 {
-                    "title": f"{symbol} headline",
-                    "source": "Example",
-                    "url": f"https://example.com/{symbol}",
-                    "published_at": "2026-01-01T00:00:00Z",
+                    "title": "MSFT stock rises after earnings beat expectations",
+                    "source": "Reuters",
+                    "url": "https://example.com/msft-good",
+                    "published_at": "2026-03-01T00:00:00Z",
                 },
             )()
         ]
@@ -27,12 +52,13 @@ class FakeNewsApiClient:
         return None
 
 
-def test_news_dedupes_and_normalizes_symbols():
+def test_news_filters_obvious_garbage_and_normalizes_symbols():
     app = create_app(
         Settings(
             news_api_key="test",
             frontend_origin="http://localhost:5173",
             per_symbol_limit=5,
+            minimum_article_score=3,
             log_level="INFO",
         )
     )
@@ -41,14 +67,18 @@ def test_news_dedupes_and_normalizes_symbols():
     app.dependency_overrides[routes.get_newsapi_client] = lambda: fake
 
     with TestClient(app) as client:
-        resp = client.get("/api/news", params={"symbols": "aapl, AAPL , msft"})
+        resp = client.get("/api/news", params={"symbols": "amzn, AMZN, msft"})
 
     assert resp.status_code == 200
     data = resp.json()
 
-    assert [c[0] for c in fake.calls] == ["AAPL", "MSFT"]
-    assert len(data) == 2
-    assert data[0]["title"] in ("AAPL headline", "MSFT headline")
+    assert len(fake.calls) == 2
+    assert any('"AMZN"' in call[0] for call in fake.calls)
+    assert any('"MSFT"' in call[0] for call in fake.calls)
+
+    titles = [item["title"] for item in data]
+    assert "Saipan 2025 1080p AMZN WEB-DL H264-MADSKY" not in titles
+    assert any("Amazon" in title or "MSFT" in title for title in titles)
 
 
 def test_news_empty_symbols_returns_empty_list():
@@ -57,6 +87,7 @@ def test_news_empty_symbols_returns_empty_list():
             news_api_key="test",
             frontend_origin="http://localhost:5173",
             per_symbol_limit=5,
+            minimum_article_score=3,
             log_level="INFO",
         )
     )
